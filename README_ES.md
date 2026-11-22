@@ -24,6 +24,8 @@ python -m ruff check .
 
 `network-weather-desktop` abre el widget y empieza a medir en un hilo separado. El botón central abre el panel, el botón de minimizar lo oculta en la bandeja y **Salir** en el menú de bandeja detiene el hilo. El cierre del widget también lo oculta. El historial permite elegir una hora, 24 horas, 7 días, 30 días o un rango personalizado y filtrar la latencia TCP por destino. La franja de clima muestra estados categóricos observados; el gráfico inferior promedia solo latencias TCP válidas por intervalo y deja visibles los periodos sin observación. La consulta SQLite se realiza fuera del hilo gráfico. `--demo` recorre los ocho climas sin hacer sondas ni escribir muestras; todas las tarjetas muestran «demo». La posición, fijación, imágenes y preferencias se guardan en `%LOCALAPPDATA%\NetworkWeather\settings.ini`.
 
+En **Configuración → Idioma**, elige Español o English. La preferencia se aplica al reiniciar la aplicación y se conserva para las siguientes sesiones. Los mensajes técnicos devueltos por Windows o por un servidor externo pueden aparecer en el idioma original de ese sistema.
+
 Vista actual del widget en modo demostración: ![Widget de tormenta, versión de desarrollo](docs/widget-demo-v2.png)
 
 ## Qué se mide
@@ -42,7 +44,7 @@ Las duraciones de sondas fallidas son `null`. La latencia TCP excluye la resoluc
 - La clasificación exige tres rondas, dos destinos y dos clasificaciones candidatas consecutivas para cambiar de clima. Los incidentes quedan abiertos durante resultados desconocidos y cierran tras dos rondas soleadas. La causa permanece sin atribuir.
 - «Sin conexión» requiere dos rondas completas sin respuesta TCP ni HTTPS de todos los destinos configurados. Una respuesta DNS, que puede venir de caché, no descarta ese estado; un fallo aislado, una prueba ausente o un error TLS tampoco lo confirman. La latencia se compara con una línea base propia de cada destino y la latencia alta de un único destino no se presenta como degradación general.
 - El motor de clima aún usa umbrales iniciales conservadores. Falta validar su comportamiento con conjuntos de datos reales de varios tipos de conexión antes de considerarlo diagnóstico definitivo.
-- El panel muestra historial por rango, latencia TCP por destino, puerta de enlace e incidentes con inicio, fin, duración, severidad y evidencias. Todavía faltan Wi-Fi detallado, idioma inglés en la interfaz y una evaluación de confianza específica para causas. No se atribuye ninguna causa a un proveedor.
+- El panel muestra historial por rango, latencia TCP por destino, puerta de enlace e incidentes con inicio, fin, duración, severidad y evidencias. Todavía faltan Wi-Fi detallado y una evaluación de confianza específica para causas. No se atribuye ninguna causa a un proveedor.
 - Los ocho fondos predeterminados son ilustraciones propias creadas para este proyecto. Qt dibuja encima los efectos de lluvia, viento, niebla y relámpagos, que pueden apagarse sin perder la imagen. Cada clima acepta una imagen PNG, JPG o WebP de hasta 10 MB y 4096 px, copiada al área de datos sin modificar el original.
 - Existe un ZIP de vista previa para Windows generado con PyInstaller. Abre `NetworkWeather.exe --demo` para revisar las escenas o `NetworkWeather.exe` para sondear la red. El paquete aún necesita validación en un Windows limpio antes de considerarse instalador público.
 

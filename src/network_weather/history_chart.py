@@ -9,6 +9,7 @@ from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
 from network_weather.history import HistorySeries
+from network_weather.i18n import normalize_language, translate
 from network_weather.weather import Weather
 
 PALETTE = {
@@ -35,8 +36,9 @@ def weather_segments(series: HistorySeries) -> list[tuple[datetime, datetime, We
 
 
 class HistoryChart(QWidget):
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None, language: str = "es") -> None:
         super().__init__(parent)
+        self.language = normalize_language(language)
         self.series: HistorySeries | None = None
         self.setMinimumHeight(230)
 
@@ -49,18 +51,21 @@ class HistoryChart(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.fillRect(self.rect(), QColor("#1a2145"))
         p.setPen(QColor("#e4e7ff"))
-        p.drawText(16, 22, "Clima observado")
-        p.drawText(16, 105, "Latencia TCP promedio por intervalo (ms)")
+        p.drawText(16, 22, translate("Clima observado", self.language))
+        p.drawText(16, 105, translate("Latencia TCP promedio por intervalo (ms)", self.language))
         left, right = 16.0, max(17.0, self.width() - 16.0)
         width = right - left
         p.fillRect(QRectF(left, 36, width, 34), QColor("#30354f"))
         p.fillRect(QRectF(left, 120, width, 75), QColor("#202846"))
         if self.series is None:
-            p.drawText(16, 220, "Selecciona un periodo para consultar el historial")
+            p.drawText(16, 220, translate("Selecciona un periodo para consultar el historial",
+                                          self.language))
+            p.end()
             return
         series = self.series
         seconds = (series.end - series.start).total_seconds()
         if seconds <= 0:
+            p.end()
             return
 
         def x(at: datetime) -> float:
@@ -77,14 +82,16 @@ class HistoryChart(QWidget):
                                   max(2, x(item.end) - x(item.start) - 1), bar_height),
                            QColor("#ad8eff"))
             p.setPen(QColor("#c9c9f9"))
-            p.drawText(int(right - 85), 118, f"máx. {max_latency:.0f} ms")
+            maximum = "max." if self.language == "en" else "máx."
+            p.drawText(int(right - 85), 118, f"{maximum} {max_latency:.0f} ms")
         p.setPen(QPen(QColor("#6f7aa7"), 1))
         p.drawLine(int(left), 195, int(right), 195)
         p.setPen(QColor("#b8c5ef"))
-        p.drawText(16, 217, series.start.astimezone().strftime("%d/%m %H:%M"))
-        end_label = series.end.astimezone().strftime("%d/%m %H:%M")
+        stamp_format = "%m/%d %H:%M" if self.language == "en" else "%d/%m %H:%M"
+        p.drawText(16, 217, series.start.astimezone().strftime(stamp_format))
+        end_label = series.end.astimezone().strftime(stamp_format)
         p.drawText(QRectF(left, 201, width, 22),
                    Qt.AlignmentFlag.AlignRight, end_label)
         if not series.weather and not series.latency:
-            p.drawText(16, 87, "Sin observaciones en este periodo")
+            p.drawText(16, 87, translate("Sin observaciones en este periodo", self.language))
         p.end()

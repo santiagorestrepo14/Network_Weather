@@ -31,3 +31,7 @@ def test_active_incident_uses_observation_time():
     rendered = format_incident(incident, start + timedelta(minutes=5))
     assert "aún activo" in rendered
     assert "5 min" in rendered
+    english = format_incident(incident, start + timedelta(minutes=5), language="en")
+    assert "Weather: Rain" in english
+    assert "Cause: undetermined" in english
+    assert "still active" in english

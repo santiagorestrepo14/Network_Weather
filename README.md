@@ -24,6 +24,8 @@ The history panel offers one hour, 24-hour, 7-day, 30-day and custom ranges, wit
 
 Selecting an incident displays its start, end, duration, peak severity and latest persisted evidence. The UI leaves the cause unidentified when the available probes cannot establish it.
 
+Choose **Settings → Language** to switch between Spanish and English. Restart the app to apply the saved choice. Raw error messages from Windows or external servers may retain their original language.
+
 A Windows preview ZIP has been built with PyInstaller, including the eight scene images. It still needs validation on a clean Windows machine before a public release.
 
 Current development preview (visual demo, no measured values): ![Storm widget preview](docs/widget-demo-v2.png)

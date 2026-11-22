@@ -63,6 +63,14 @@ from PySide6.QtWidgets import (
 from network_weather.config import ProbeConfig, default_data_dir
 from network_weather.history import HistoryStore
 from network_weather.history_chart import PALETTE, HistoryChart, weather_segments
+from network_weather.i18n import (
+    evidence_name,
+    normalize_language,
+    probe_status_name,
+    translate,
+    weather_description,
+    weather_name,
+)
 from network_weather.incident_view import format_incident
 from network_weather.metrics import summarize
 from network_weather.models import MeasurementRound, ProbeKind
@@ -79,24 +87,6 @@ COLORS = {
     Weather.OFFLINE: ("#fa7c9b", "#27263e"),
     Weather.UNKNOWN: ("#b9b8df", "#343159"),
 }
-NAMES = {
-    Weather.SUNNY: "Soleado", Weather.CLOUDY: "Nublado",
-    Weather.WINDY: "Ventoso", Weather.RAINY: "Lluvioso",
-    Weather.FOGGY: "Neblina", Weather.STORMY: "Tormenta",
-    Weather.OFFLINE: "Sin conexión", Weather.UNKNOWN: "Desconocido",
-}
-DESCRIPTIONS = {
-    Weather.SUNNY: "Conexión estable observada",
-    Weather.CLOUDY: "Latencia elevada sostenida",
-    Weather.WINDY: "Variación de latencia elevada",
-    Weather.RAINY: "Fallos de respuesta intermitentes",
-    Weather.FOGGY: "Problemas de resolución DNS",
-    Weather.STORMY: "Degradación combinada",
-    Weather.OFFLINE: "Sin respuesta de varios destinos",
-    Weather.UNKNOWN: "Esperando evidencia suficiente",
-}
-
-
 def icon() -> QIcon:
     pixmap = QPixmap(64, 64)
     pixmap.fill(Qt.GlobalColor.transparent)
@@ -358,9 +348,10 @@ class MonitorThread(QThread):
     measured = Signal(object, object, object)
     failed = Signal(str)
 
-    def __init__(self, config: ProbeConfig) -> None:
+    def __init__(self, config: ProbeConfig, language: str = "es") -> None:
         super().__init__()
         self.config = config
+        self.language = normalize_language(language)
         self.stop_event = threading.Event()
 
     def run(self) -> None:
@@ -371,10 +362,13 @@ class MonitorThread(QThread):
                         round_, result = monitor.measure()
                         self.measured.emit(round_, result, monitor.history.incidents(100))
                     except Exception as exc:  # noqa: BLE001 - report probe failures without killing UI
-                        self.failed.emit(f"No se pudo medir: {exc}")
+                        prefix = "Probe failed" if self.language == "en" else "No se pudo medir"
+                        self.failed.emit(f"{prefix}: {exc}")
                     self.stop_event.wait(self.config.interval_seconds)
         except Exception as exc:  # noqa: BLE001 - show startup failures in the widget
-            self.failed.emit(f"No se pudo iniciar el monitor: {exc}")
+            prefix = ("Could not start monitoring" if self.language == "en"
+                      else "No se pudo iniciar el monitor")
+            self.failed.emit(f"{prefix}: {exc}")
 
     def stop(self) -> None:
         self.stop_event.set()
@@ -404,6 +398,7 @@ class WeatherWidget(QWidget):
     def __init__(self, settings: QSettings) -> None:
         super().__init__()
         self.settings = settings
+        self.language = normalize_language(settings.value("language", "es"))
         self.setWindowTitle("Network Weather")
         self.setWindowIcon(icon())
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
@@ -426,15 +421,15 @@ class WeatherWidget(QWidget):
         title = QLabel("Network Weather")
         title.setStyleSheet("font-size:16px;font-weight:600")
         self.pin_button = QPushButton("📌")
-        self.pin_button.setToolTip("Fijar encima de otras ventanas")
+        self.pin_button.setToolTip(self.t("Fijar encima de otras ventanas"))
         self.pin_button.setFixedWidth(38)
         self.pin_button.clicked.connect(self.toggle_pin)
         panel_button = QPushButton("▣")
-        panel_button.setToolTip("Abrir panel")
+        panel_button.setToolTip(self.t("Abrir panel"))
         panel_button.setFixedWidth(38)
         panel_button.clicked.connect(self.open_panel.emit)
         hide_button = QPushButton("−")
-        hide_button.setToolTip("Ocultar en la bandeja")
+        hide_button.setToolTip(self.t("Ocultar en la bandeja"))
         hide_button.setFixedWidth(38)
         hide_button.clicked.connect(self.hide_requested.emit)
         header.addWidget(app_icon)
@@ -446,27 +441,27 @@ class WeatherWidget(QWidget):
         layout.addLayout(header)
         self.scene = WeatherScene(settings)
         layout.addWidget(self.scene)
-        self.weather_label = QLabel("Desconocido")
+        self.weather_label = QLabel(weather_name(Weather.UNKNOWN, self.language))
         self.weather_label.setStyleSheet("font-size:27px;font-weight:700;color:#f5e9ff")
-        self.description = QLabel("Esperando evidencia suficiente")
+        self.description = QLabel(weather_description(Weather.UNKNOWN, self.language))
         self.description.setStyleSheet("color:#c7bfe1")
-        self.monitoring = QLabel("●  Monitoreo activo")
+        self.monitoring = QLabel(self.t("●  Monitoreo activo"))
         self.monitoring.setStyleSheet("color:#6cf2bd;font-size:11px")
         layout.addWidget(self.weather_label)
         layout.addWidget(self.description)
         layout.addWidget(self.monitoring)
         metrics = QHBoxLayout()
         self.cards = {
-            "latency": MetricCard("Latencia"),
-            "jitter": MetricCard("Variación"),
-            "loss": MetricCard("Fallos TCP"),
+            "latency": MetricCard(self.t("Latencia")),
+            "jitter": MetricCard(self.t("Variación")),
+            "loss": MetricCard(self.t("Fallos TCP")),
             "dns": MetricCard("DNS"),
         }
         for card in self.cards.values():
             metrics.addWidget(card)
         layout.addLayout(metrics)
         self.sparkline = Sparkline()
-        history_caption = QLabel("Historial TCP · una muestra por ronda")
+        history_caption = QLabel(self.t("Historial TCP · promedio por ronda"))
         history_caption.setStyleSheet("color:#b9b0dc;font-size:10px")
         layout.addWidget(history_caption)
         layout.addWidget(self.sparkline)
@@ -477,6 +472,9 @@ class WeatherWidget(QWidget):
         else:
             screen = QApplication.primaryScreen().availableGeometry()
             self.move(screen.right()-self.width()-25, screen.top()+25)
+
+    def t(self, message: str) -> str:
+        return translate(message, self.language)
 
     def _apply_pin(self) -> None:
         pinned = self.settings.value("pinned", False, type=bool)
@@ -495,9 +493,9 @@ class WeatherWidget(QWidget):
 
     def update_measurement(self, round_: MeasurementRound, result: Classification) -> None:
         self.scene.set_weather(result.weather)
-        self.weather_label.setText(NAMES[result.weather])
-        self.description.setText(DESCRIPTIONS[result.weather])
-        self.monitoring.setText("●  Monitoreo activo · datos reales")
+        self.weather_label.setText(weather_name(result.weather, self.language))
+        self.description.setText(weather_description(result.weather, self.language))
+        self.monitoring.setText(self.t("●  Monitoreo activo · datos reales"))
         tcp = [p for p in round_.probes if p.kind == ProbeKind.TCP]
         dns = [p for p in round_.probes if p.kind == ProbeKind.DNS]
         times = [p.duration_ms for p in tcp if p.ok and p.duration_ms is not None]
@@ -505,7 +503,8 @@ class WeatherWidget(QWidget):
         self.cards["loss"].value.setText(
             f"{100 * sum(not p.ok for p in tcp)/len(tcp):.0f}%" if tcp else "—"
         )
-        self.cards["dns"].value.setText("OK" if dns and all(p.ok for p in dns) else "Error")
+        self.cards["dns"].value.setText("OK" if dns and all(p.ok for p in dns)
+                                        else self.t("Error") if dns else "—")
         # The graph receives one observed TCP value per round. No interpolated points.
         self.sparkline.samples.append(sum(times)/len(times) if times else None)
         self.sparkline.samples = self.sparkline.samples[-30:]
@@ -542,8 +541,9 @@ class ExpandedPanel(QMainWindow):
     def __init__(self, settings: QSettings, widget: WeatherWidget) -> None:
         super().__init__()
         self.settings = settings
+        self.language = normalize_language(settings.value("language", "es"))
         self.widget_ref = widget
-        self.setWindowTitle("Network Weather · Panel")
+        self.setWindowTitle("Network Weather · " + self.t("Resumen"))
         self.setWindowIcon(icon())
         self.resize(1020, 650)
         root = QWidget()
@@ -552,7 +552,8 @@ class ExpandedPanel(QMainWindow):
         horizontal = QHBoxLayout(root)
         horizontal.setContentsMargins(15, 15, 15, 15)
         self.nav = QListWidget()
-        self.nav.addItems(["Resumen", "Diagnóstico", "Historial", "Incidentes", "Configuración"])
+        self.nav.addItems([self.t(item) for item in
+                           ("Resumen", "Diagnóstico", "Historial", "Incidentes", "Configuración")])
         self.nav.setFixedWidth(160)
         horizontal.addWidget(self.nav)
         self.stack = QStackedWidget()
@@ -564,23 +565,26 @@ class ExpandedPanel(QMainWindow):
             self.stack.addWidget(page)
         self.nav.setCurrentRow(0)
 
+    def t(self, message: str) -> str:
+        return translate(message, self.language)
+
     def _page(self, heading: str) -> tuple[QWidget, QVBoxLayout]:
         page = QWidget()
         layout = QVBoxLayout(page)
-        title = QLabel(heading)
+        title = QLabel(self.t(heading))
         title.setStyleSheet("font-size:24px;font-weight:700;color:#f5ddff")
         layout.addWidget(title)
         return page, layout
 
     def _summary_page(self) -> QWidget:
         page, layout = self._page("Resumen de la conexión")
-        self.summary_label = QLabel("Esperando las primeras mediciones…")
+        self.summary_label = QLabel(self.t("Esperando las primeras mediciones…"))
         self.summary_label.setWordWrap(True)
         self.summary_label.setStyleSheet("font-size:19px")
         layout.addWidget(self.summary_label)
-        self.confidence_label = QLabel("Confianza: —   Severidad: —")
+        self.confidence_label = QLabel(self.t("Confianza: —   Severidad: —"))
         layout.addWidget(self.confidence_label)
-        self.evidence_label = QLabel("Las evidencias aparecerán tras tres rondas.")
+        self.evidence_label = QLabel(self.t("Las evidencias aparecerán tras tres rondas."))
         self.evidence_label.setWordWrap(True)
         layout.addWidget(self.evidence_label)
         layout.addStretch()
@@ -588,7 +592,7 @@ class ExpandedPanel(QMainWindow):
 
     def _diagnostic_page(self) -> QWidget:
         page, layout = self._page("Diagnóstico técnico")
-        self.diagnostic_label = QLabel("Esperando pruebas DNS, TCP y HTTPS…")
+        self.diagnostic_label = QLabel(self.t("Esperando pruebas DNS, TCP y HTTPS…"))
         self.diagnostic_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.diagnostic_label.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.diagnostic_label.setWordWrap(True)
@@ -600,18 +604,20 @@ class ExpandedPanel(QMainWindow):
         page, layout = self._page("Historial observado")
         filters = QHBoxLayout()
         self.history_range = QComboBox()
-        self.history_range.addItems(["Última hora", "24 horas", "7 días", "30 días", "Personalizado"])
+        self.history_range.addItems([self.t(item) for item in
+                                     ("Última hora", "24 horas", "7 días", "30 días", "Personalizado")])
         self.history_range.currentIndexChanged.connect(self._range_changed)
         self.history_start = QDateTimeEdit()
         self.history_end = QDateTimeEdit()
         for field in (self.history_start, self.history_end):
             field.setCalendarPopup(True)
-            field.setDisplayFormat("dd/MM/yyyy HH:mm")
+            field.setDisplayFormat("yyyy-MM-dd HH:mm" if self.language == "en"
+                                   else "dd/MM/yyyy HH:mm")
             field.hide()
         self.history_destination = QComboBox()
-        self.history_destination.addItem("Todos los destinos", None)
+        self.history_destination.addItem(self.t("Todos los destinos"), None)
         self.history_destination.currentIndexChanged.connect(self.history_requested.emit)
-        refresh = QPushButton("Actualizar")
+        refresh = QPushButton(self.t("Actualizar"))
         refresh.clicked.connect(self.history_requested.emit)
         filters.addWidget(self.history_range)
         filters.addWidget(self.history_start)
@@ -619,13 +625,13 @@ class ExpandedPanel(QMainWindow):
         filters.addWidget(self.history_destination)
         filters.addWidget(refresh)
         layout.addLayout(filters)
-        self.history_status = QLabel("Abre el historial para consultar los datos guardados.")
+        self.history_status = QLabel(self.t("Abre el historial para consultar los datos guardados."))
         layout.addWidget(self.history_status)
-        self.history_chart = HistoryChart()
+        self.history_chart = HistoryChart(language=self.language)
         layout.addWidget(self.history_chart)
         legend = QHBoxLayout()
         for weather in Weather:
-            label = QLabel(f"● {NAMES[weather]}")
+            label = QLabel(f"● {weather_name(weather, self.language)}")
             label.setStyleSheet(f"color:{PALETTE[weather]}")
             legend.addWidget(label)
         legend.addStretch()
@@ -665,16 +671,19 @@ class ExpandedPanel(QMainWindow):
         segments = weather_segments(series)
         observed_seconds = sum((end - start).total_seconds() for start, end, _ in segments)
         has_gaps = observed_seconds < (series.end - series.start).total_seconds() - 1
-        self.history_status.setText(
-            f"{len(series.weather)} rondas · {sum(b.sample_count for b in series.latency)} "
-            f"muestras TCP válidas" + (" · gris: sin observación" if has_gaps else "")
-            + (" · límite de rondas alcanzado" if series.truncated else "")
-        )
+        sample_count = sum(b.sample_count for b in series.latency)
+        if self.language == "en":
+            status = f"{len(series.weather)} rounds · {sample_count} valid TCP samples"
+        else:
+            status = f"{len(series.weather)} rondas · {sample_count} muestras TCP válidas"
+        status += self.t(" · gris: sin observación") if has_gaps else ""
+        status += self.t(" · límite de rondas alcanzado") if series.truncated else ""
+        self.history_status.setText(status)
         selected = self.history_destination.currentData()
         destinations = set(series.destinations)
         self.history_destination.blockSignals(True)
         self.history_destination.clear()
-        self.history_destination.addItem("Todos los destinos", None)
+        self.history_destination.addItem(self.t("Todos los destinos"), None)
         for destination in sorted(destinations | ({selected} if selected else set())):
             self.history_destination.addItem(destination, destination)
         index = self.history_destination.findData(selected)
@@ -682,8 +691,10 @@ class ExpandedPanel(QMainWindow):
         self.history_destination.blockSignals(False)
         self.history_list.clear()
         for point in reversed(series.weather[-200:]):
-            self.history_list.addItem(
-                f"{point.at.astimezone():%d/%m %H:%M:%S} · {NAMES[point.weather]}")
+            stamp = (point.at.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+                     if self.language == "en" else
+                     point.at.astimezone().strftime("%d/%m %H:%M:%S"))
+            self.history_list.addItem(f"{stamp} · {weather_name(point.weather, self.language)}")
         selected_id = None
         row = self.incident_list.currentRow()
         if 0 <= row < len(self._incidents):
@@ -691,17 +702,21 @@ class ExpandedPanel(QMainWindow):
         self._incidents = incidents
         self.incident_list.clear()
         for incident in incidents:
-            state = "Activo" if incident["ended_at"] is None else "Finalizado"
+            state = self.t("Activo") if incident["ended_at"] is None else self.t("Finalizado")
             started = datetime.fromisoformat(incident["started_at"]).astimezone()
+            stamp = (started.strftime("%Y-%m-%d %H:%M") if self.language == "en"
+                     else started.strftime("%d/%m/%Y %H:%M"))
+            label = weather_name(Weather(incident["weather"]), self.language)
+            severity = "severity" if self.language == "en" else "severidad"
             self.incident_list.addItem(
-                f"{started:%d/%m/%Y %H:%M} · {NAMES[Weather(incident['weather'])]} · "
-                f"{state} · severidad {incident['severity']:.0%}")
+                f"{stamp} · {label} · {state} · "
+                f"{severity} {incident['severity']:.0%}")
         selected_row = next((index for index, item in enumerate(incidents)
                              if item["id"] == selected_id), 0)
         if incidents:
             self.incident_list.setCurrentRow(selected_row)
         else:
-            self.incident_detail.setPlainText("No hay incidentes registrados.")
+            self.incident_detail.setPlainText(self.t("No hay incidentes registrados."))
 
     def _incident_page(self) -> QWidget:
         page, layout = self._page("Incidentes")
@@ -716,21 +731,31 @@ class ExpandedPanel(QMainWindow):
             "background:#1b2348;border:1px solid #5b598e;border-radius:10px;"
             "padding:10px;color:#f4edff"
         )
-        self.incident_detail.setPlainText("Abre Incidentes para consultar los episodios guardados.")
+        self.incident_detail.setPlainText(
+            self.t("Abre Incidentes para consultar los episodios guardados."))
         layout.addWidget(self.incident_detail)
         return page
 
     def _show_incident_detail(self, row: int) -> None:
         if 0 <= row < len(self._incidents):
-            self.incident_detail.setPlainText(format_incident(self._incidents[row]))
+            self.incident_detail.setPlainText(format_incident(
+                self._incidents[row], language=self.language))
 
     def _settings_page(self) -> QWidget:
         page, layout = self._page("Configuración")
         self.weather_previews: dict[Weather, WeatherScene] = {}
-        reduced = QCheckBox("Movimiento reducido")
+        language_label = QLabel(self.t("Idioma"))
+        self.language_input = QComboBox()
+        self.language_input.addItem("Español", "es")
+        self.language_input.addItem("English", "en")
+        self.language_input.setCurrentIndex(self.language_input.findData(self.language))
+        self.language_input.currentIndexChanged.connect(self._set_language)
+        layout.addWidget(language_label)
+        layout.addWidget(self.language_input)
+        reduced = QCheckBox(self.t("Movimiento reducido"))
         reduced.setChecked(self.settings.value("reduced_motion", False, type=bool))
         reduced.toggled.connect(lambda checked: self.settings.setValue("reduced_motion", checked))
-        effects = QCheckBox("Efectos meteorológicos")
+        effects = QCheckBox(self.t("Efectos meteorológicos"))
         effects.setChecked(self.settings.value("effects", True, type=bool))
         effects.toggled.connect(lambda checked: self.settings.setValue("effects", checked))
         layout.addWidget(reduced)
@@ -739,47 +764,47 @@ class ExpandedPanel(QMainWindow):
         fit.addItems(["cover", "contain", "center"])
         fit.setCurrentText(self.settings.value("image_fit", "cover"))
         fit.currentTextChanged.connect(lambda value: self.settings.setValue("image_fit", value))
-        layout.addWidget(QLabel("Ajuste de imagen"))
+        layout.addWidget(QLabel(self.t("Ajuste de imagen")))
         layout.addWidget(fit)
-        layout.addWidget(QLabel("Mediciones · los cambios se aplican al reiniciar"))
+        layout.addWidget(QLabel(self.t("Mediciones · los cambios se aplican al reiniciar")))
         self.interval_input = QSpinBox()
         self.interval_input.setRange(5, 3600)
         self.interval_input.setSuffix(" s")
         self.interval_input.setValue(self.settings.value("interval", 30, type=int))
         self.retention_input = QSpinBox()
         self.retention_input.setRange(1, 3650)
-        self.retention_input.setSuffix(" días")
+        self.retention_input.setSuffix(self.t(" días"))
         self.retention_input.setValue(self.settings.value("retention_days", 30, type=int))
         self.destinations_input = QLineEdit(
             self.settings.value("destinations", "example.com, www.wikipedia.org")
         )
         self.destinations_input.setPlaceholderText("example.com, www.wikipedia.org")
-        layout.addWidget(QLabel("Intervalo"))
+        layout.addWidget(QLabel(self.t("Intervalo")))
         layout.addWidget(self.interval_input)
-        layout.addWidget(QLabel("Retención del historial"))
+        layout.addWidget(QLabel(self.t("Retención del historial")))
         layout.addWidget(self.retention_input)
-        layout.addWidget(QLabel("Destinos HTTPS (separados por comas)"))
+        layout.addWidget(QLabel(self.t("Destinos HTTPS (separados por comas)")))
         layout.addWidget(self.destinations_input)
-        save_probes = QPushButton("Guardar mediciones")
+        save_probes = QPushButton(self.t("Guardar mediciones"))
         save_probes.clicked.connect(self._save_probe_settings)
         layout.addWidget(save_probes)
-        startup = QCheckBox("Iniciar con Windows")
+        startup = QCheckBox(self.t("Iniciar con Windows"))
         startup.setChecked(self.settings.value("startup", False, type=bool))
         startup.toggled.connect(self._set_startup)
         layout.addWidget(startup)
-        layout.addWidget(QLabel("Apariencia → Climas"))
+        layout.addWidget(QLabel(self.t("Apariencia → Climas")))
         grid = QGridLayout()
         for row, weather in enumerate(Weather):
-            grid.addWidget(QLabel(NAMES[weather]), row, 0)
+            grid.addWidget(QLabel(weather_name(weather, self.language)), row, 0)
             preview = WeatherScene(self.settings)
             preview.timer.stop()
             preview.setFixedSize(72, 44)
             preview.set_weather(weather)
             self.weather_previews[weather] = preview
             grid.addWidget(preview, row, 1)
-            choose = QPushButton("Seleccionar imagen…")
+            choose = QPushButton(self.t("Seleccionar imagen…"))
             choose.clicked.connect(lambda _checked=False, state=weather: self._choose_image(state))
-            reset = QPushButton("Original")
+            reset = QPushButton(self.t("Original"))
             reset.clicked.connect(lambda _checked=False, state=weather: self._reset_image(state))
             grid.addWidget(choose, row, 2)
             grid.addWidget(reset, row, 3)
@@ -790,23 +815,33 @@ class ExpandedPanel(QMainWindow):
         scroll.setWidget(page)
         return scroll
 
+    def _set_language(self, _index: int) -> None:
+        chosen = self.language_input.currentData()
+        if chosen == self.language:
+            return
+        self.settings.setValue("language", chosen)
+        self.settings.sync()
+        QMessageBox.information(self, "Network Weather",
+                                self.t("Reinicia Network Weather para aplicar el idioma."))
+
     def _save_probe_settings(self) -> None:
         hosts = tuple(host.strip() for host in self.destinations_input.text().split(","))
         try:
             ProbeConfig(destinations=hosts, interval_seconds=self.interval_input.value(),
                         retention_days=self.retention_input.value())
         except ValueError as exc:
-            QMessageBox.warning(self, "Destinos no válidos", str(exc))
+            QMessageBox.warning(self, self.t("Destinos no válidos"), str(exc))
             return
         self.settings.setValue("destinations", ", ".join(hosts))
         self.settings.setValue("interval", self.interval_input.value())
         self.settings.setValue("retention_days", self.retention_input.value())
         self.settings.sync()
-        QMessageBox.information(self, "Guardado", "Las nuevas sondas se usarán al reiniciar Network Weather.")
+        QMessageBox.information(self, self.t("Guardado"),
+                                self.t("Las nuevas sondas se usarán al reiniciar Network Weather."))
 
     def _set_startup(self, enabled: bool) -> None:
         if sys.platform != "win32":
-            QMessageBox.warning(self, "No disponible", "Esta opción requiere Windows.")
+            QMessageBox.warning(self, self.t("No disponible"), self.t("Esta opción requiere Windows."))
             return
         import winreg
 
@@ -825,11 +860,13 @@ class ExpandedPanel(QMainWindow):
                         pass
             self.settings.setValue("startup", enabled)
         except OSError as exc:
-            QMessageBox.warning(self, "No se pudo configurar", str(exc))
+            QMessageBox.warning(self, self.t("No se pudo configurar"), str(exc))
 
     def _choose_image(self, weather: Weather) -> None:
         file, _ = QFileDialog.getOpenFileName(
-            self, f"Imagen para {NAMES[weather]}", "", "Imágenes (*.png *.jpg *.jpeg *.webp)"
+            self, (f"Image for {weather_name(weather, self.language)}" if self.language == "en"
+                   else f"Imagen para {weather_name(weather, self.language)}"), "",
+            self.t("Imágenes (*.png *.jpg *.jpeg *.webp)")
         )
         if not file:
             return
@@ -839,15 +876,17 @@ class ExpandedPanel(QMainWindow):
         if (source.stat().st_size > 10_000_000 or not reader.canRead() or
                 size.width() < 64 or size.height() < 64 or
                 size.width() > 4096 or size.height() > 4096):
-            QMessageBox.warning(self, "Imagen no válida", "Usa PNG, JPG o WebP de 64–4096 px y hasta 10 MB.")
+            QMessageBox.warning(self, self.t("Imagen no válida"),
+                                self.t("Usa PNG, JPG o WebP de 64–4096 px y hasta 10 MB."))
             return
         image = reader.read()
         if image.isNull():
-            QMessageBox.warning(self, "Imagen no válida", reader.errorString())
+            QMessageBox.warning(self, self.t("Imagen no válida"), reader.errorString())
             return
         preview = QMessageBox(self)
-        preview.setWindowTitle(f"Vista previa · {NAMES[weather]}")
-        preview.setText("¿Aplicar esta imagen al clima seleccionado?")
+        title = "Preview" if self.language == "en" else "Vista previa"
+        preview.setWindowTitle(f"{title} · {weather_name(weather, self.language)}")
+        preview.setText(self.t("¿Aplicar esta imagen al clima seleccionado?"))
         preview.setIconPixmap(QPixmap.fromImage(image).scaled(
             300, 180, Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
@@ -860,7 +899,8 @@ class ExpandedPanel(QMainWindow):
         temporary = folder / f"{weather.value}.tmp.png"
         target = folder / f"{weather.value}.png"
         if not image.save(str(temporary), "PNG"):
-            QMessageBox.warning(self, "Error", "No se pudo guardar la imagen importada.")
+            QMessageBox.warning(self, self.t("Error"),
+                                self.t("No se pudo guardar la imagen importada."))
             return
         temporary.replace(target)
         self.settings.setValue(f"image/{weather.value}", str(target))
@@ -873,19 +913,28 @@ class ExpandedPanel(QMainWindow):
         self.weather_previews[weather].invalidate_image()
 
     def update_measurement(self, round_: MeasurementRound, result: Classification) -> None:
-        self.summary_label.setText(f"{NAMES[result.weather]} · {DESCRIPTIONS[result.weather]}")
+        self.summary_label.setText(
+            f"{weather_name(result.weather, self.language)} · "
+            f"{weather_description(result.weather, self.language)}")
+        confidence_label = "Confidence" if self.language == "en" else "Confianza"
+        severity_label = "Severity" if self.language == "en" else "Severidad"
         self.confidence_label.setText(
-            f"Confianza: {result.confidence:.0%}   Severidad: {result.severity:.0%}"
-        )
-        self.evidence_label.setText("\n".join(e.detail for e in result.evidence))
+            f"{confidence_label}: {result.confidence:.0%}   "
+            f"{severity_label}: {result.severity:.0%}")
+        self.evidence_label.setText("\n".join(
+            evidence_name(e.code, e.detail, self.language) for e in result.evidence))
+        adapter_label = "Route adapter" if self.language == "en" else "Adaptador de ruta"
+        gateway_label = "IPv4 gateway" if self.language == "en" else "Puerta de enlace IPv4"
         lines = [
-            f"Adaptador de ruta: {round_.route_adapter or 'No identificado'}",
-            f"Puerta de enlace IPv4: {round_.gateway_address or 'No identificada'}",
+            f"{adapter_label}: {round_.route_adapter or self.t('No identificado')}",
+            f"{gateway_label}: {round_.gateway_address or self.t('No identificada')}",
             "",
         ]
         for probe in round_.probes:
-            duration = f"{probe.duration_ms:.1f} ms" if probe.duration_ms is not None else "sin latencia válida"
-            lines.append(f"{probe.destination} · {probe.kind.value.upper()} · {probe.status.value} · {duration}")
+            duration = (f"{probe.duration_ms:.1f} ms" if probe.duration_ms is not None
+                        else self.t("sin latencia válida"))
+            status = probe_status_name(probe.status, self.language)
+            lines.append(f"{probe.destination} · {probe.kind.value.upper()} · {status} · {duration}")
             if probe.detail:
                 lines.append(f"  {probe.detail}")
         self.diagnostic_label.setText("\n".join(lines))
@@ -899,6 +948,7 @@ class DesktopController(QObject):
         settings_path = default_data_dir() / "settings.ini"
         settings_path.parent.mkdir(parents=True, exist_ok=True)
         self.settings = QSettings(str(settings_path), QSettings.Format.IniFormat)
+        self.language = normalize_language(self.settings.value("language", "es"))
         self.widget = WeatherWidget(self.settings)
         self.panel = ExpandedPanel(self.settings, self.widget)
         self.widget.open_panel.connect(self.show_panel)
@@ -911,18 +961,19 @@ class DesktopController(QObject):
         self.demo_index = 0
 
         self.tray = QSystemTrayIcon(icon(), app)
-        self.tray.setToolTip("Network Weather · iniciando")
+        self.tray.setToolTip(translate("Network Weather · iniciando", self.language))
         menu = QMenu()
-        menu.addAction("Mostrar widget", self.show_widget)
-        menu.addAction("Abrir panel", self.show_panel)
+        menu.addAction(translate("Mostrar widget", self.language), self.show_widget)
+        menu.addAction(translate("Abrir panel", self.language), self.show_panel)
         menu.addSeparator()
-        menu.addAction("Salir", self.exit)
+        menu.addAction(translate("Salir", self.language), self.exit)
         self.tray.setContextMenu(menu)
         self.tray.activated.connect(self._tray_activated)
         self.tray.show()
         self.widget.show()
         if demo:
-            self.widget.monitoring.setText("●  MODO DEMOSTRACIÓN · sin mediciones reales")
+            self.widget.monitoring.setText(translate(
+                "●  MODO DEMOSTRACIÓN · sin mediciones reales", self.language))
             self.demo_timer = QTimer(app)
             self.demo_timer.timeout.connect(self._demo_next)
             self._demo_next()
@@ -938,7 +989,7 @@ class DesktopController(QObject):
                 )
             except ValueError:
                 config = ProbeConfig()
-            self.worker = MonitorThread(config)
+            self.worker = MonitorThread(config, self.language)
             self.worker.measured.connect(self._measured)
             self.worker.failed.connect(self._failed)
             self.worker.start()
@@ -961,7 +1012,7 @@ class DesktopController(QObject):
                   incidents: list[dict]) -> None:
         self.widget.update_measurement(round_, result)
         self.panel.update_measurement(round_, result)
-        self.tray.setToolTip(f"Network Weather · {NAMES[result.weather]}")
+        self.tray.setToolTip(f"Network Weather · {weather_name(result.weather, self.language)}")
         self.recent_tcp.extend(p for p in round_.probes if p.kind == ProbeKind.TCP)
         self.recent_tcp = self.recent_tcp[-60:]
         if self.recent_tcp:
@@ -979,9 +1030,10 @@ class DesktopController(QObject):
             return
         start, end, destination = self.panel.selected_history_range()
         if start >= end:
-            self.panel.history_status.setText("El inicio debe ser anterior al fin.")
+            self.panel.history_status.setText(translate(
+                "El inicio debe ser anterior al fin.", self.language))
             return
-        self.panel.history_status.setText("Consultando historial…")
+        self.panel.history_status.setText(translate("Consultando historial…", self.language))
         self.history_worker = HistoryQueryThread(start, end, destination)
         self.history_worker.loaded.connect(self.panel.show_history)
         self.history_worker.failed.connect(self.panel.history_status.setText)
@@ -996,28 +1048,36 @@ class DesktopController(QObject):
 
     def _failed(self, message: str) -> None:
         self.widget.monitoring.setText(message)
-        self.tray.setToolTip("Network Weather · error de medición")
+        self.tray.setToolTip(translate("Network Weather · error de medición", self.language))
 
     def _demo_next(self) -> None:
         weather = list(Weather)[self.demo_index % len(Weather)]
         self.demo_index += 1
         self.widget.scene.set_weather(weather)
-        self.widget.weather_label.setText(NAMES[weather])
-        self.widget.description.setText(DESCRIPTIONS[weather])
-        self.panel.summary_label.setText(f"MODO DEMOSTRACIÓN · {NAMES[weather]}")
-        self.panel.evidence_label.setText("Escena visual sintética. No hay pruebas de red ni historial.")
-        self.tray.setToolTip(f"Network Weather · demostración: {NAMES[weather]}")
+        self.widget.weather_label.setText(weather_name(weather, self.language))
+        self.widget.description.setText(weather_description(weather, self.language))
+        heading = "DEMO MODE" if self.language == "en" else "MODO DEMOSTRACIÓN"
+        self.panel.summary_label.setText(
+            f"{heading} · {weather_name(weather, self.language)}")
+        self.panel.evidence_label.setText(translate(
+            "Escena visual sintética. No hay pruebas de red ni historial.", self.language))
+        demo_label = "demo" if self.language == "en" else "demostración"
+        self.tray.setToolTip(
+            f"Network Weather · {demo_label}: {weather_name(weather, self.language)}")
         for card in self.widget.cards.values():
             card.value.setText("demo")
 
     def exit(self) -> None:
         if self.history_worker and not self.history_worker.wait(30000):
-            QMessageBox.warning(self.widget, "Cierre pendiente", "La consulta del historial aún no termina.")
+            QMessageBox.warning(self.widget, translate("Cierre pendiente", self.language),
+                                translate("La consulta del historial aún no termina.", self.language))
             return
         if self.worker:
             self.worker.stop()
             if not self.worker.wait(30000):
-                QMessageBox.warning(self.widget, "Cierre pendiente", "Una prueba de red aún no termina. Intenta salir de nuevo.")
+                QMessageBox.warning(self.widget, translate("Cierre pendiente", self.language),
+                                    translate("Una prueba de red aún no termina. Intenta salir de nuevo.",
+                                              self.language))
                 return
         self.settings.sync()
         self.tray.hide()
@@ -1043,7 +1103,11 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         QLocalServer.removeServer(server_name)
         if not instance.listen(server_name):
-            QMessageBox.critical(None, "Network Weather", "No se pudo crear la instancia única.")
+            settings_path = default_data_dir() / "settings.ini"
+            language = normalize_language(QSettings(str(settings_path),
+                                                    QSettings.Format.IniFormat).value("language", "es"))
+            QMessageBox.critical(None, "Network Weather", translate(
+                "No se pudo crear la instancia única.", language))
             return 1
     controller = DesktopController(app, demo=args.demo)
     instance.newConnection.connect(lambda: _restore_existing(instance, controller))

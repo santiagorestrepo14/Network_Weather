@@ -109,3 +109,47 @@ def test_incident_selection_shows_persisted_evidence(tmp_path):
     panel.close()
     widget.hide()
     app.processEvents()
+
+
+def test_english_ui_uses_saved_language_for_widget_history_and_incidents(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    settings.setValue("language", "en")
+    widget = WeatherWidget(settings)
+    panel = ExpandedPanel(settings, widget)
+    assert widget.weather_label.text() == "Unknown"
+    assert panel.nav.item(0).text() == "Overview"
+    assert panel.history_range.itemText(0) == "Last hour"
+    assert panel.history_chart.language == "en"
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    empty = HistorySeries(now, now + timedelta(hours=1), (), (), (), 120.0, False)
+    panel.show_history(empty, [{
+        "id": 1, "started_at": now.isoformat(), "ended_at": None,
+        "weather": Weather.RAINY.value, "severity": 0.5,
+        "evidence": [{"code": "response_failures", "detail": "Response failures",
+                      "observed": 0.4, "threshold": 0.2}],
+    }])
+    assert "valid TCP samples" in panel.history_status.text()
+    assert "Cause: undetermined" in panel.incident_detail.toPlainText()
+    assert "40% of probes" in panel.incident_detail.toPlainText()
+    panel.close()
+    widget.hide()
+    app.processEvents()
+
+
+def test_language_choice_persists_for_next_launch(tmp_path, monkeypatch):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    widget = WeatherWidget(settings)
+    panel = ExpandedPanel(settings, widget)
+    monkeypatch.setattr(QMessageBox, "information", lambda *_args: None)
+    panel.language_input.setCurrentIndex(panel.language_input.findData("en"))
+    assert settings.value("language") == "en"
+    panel.close()
+    widget.hide()
+    restarted_widget = WeatherWidget(settings)
+    restarted_panel = ExpandedPanel(settings, restarted_widget)
+    assert restarted_panel.nav.item(4).text() == "Settings"
+    restarted_panel.close()
+    restarted_widget.hide()
+    app.processEvents()
