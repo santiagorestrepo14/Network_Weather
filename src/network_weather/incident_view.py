@@ -20,6 +20,7 @@ EVIDENCE_NAMES = {
     "dns_failures": "Fallos de resolución DNS",
     "response_failures": "Fallos de respuesta TCP/HTTPS",
     "high_latency": "Latencia TCP elevada",
+    "single_target_latency": "Latencia TCP elevada en un solo destino",
     "rtt_variation": "Variación elevada entre tiempos TCP comparables",
     "tls_errors": "Errores de verificación o negociación TLS",
     "conflicting_results": "Resultados contradictorios entre pruebas",
@@ -59,7 +60,7 @@ def format_incident(incident: dict, now: datetime | None = None) -> str:
             if code in {"dns_failures", "response_failures", "multi_target_outage"}:
                 value = f"{observed:.0%} de pruebas"
                 bound = f"; umbral {threshold:.0%}" if threshold is not None else ""
-            elif code in {"high_latency", "rtt_variation"}:
+            elif code in {"high_latency", "single_target_latency", "rtt_variation"}:
                 value = f"{observed:.1f} ms"
                 bound = f"; umbral {threshold:.1f} ms" if threshold is not None else ""
             else:

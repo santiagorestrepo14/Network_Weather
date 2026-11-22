@@ -58,6 +58,72 @@ def test_persistent_response_failures_make_rain():
     assert any(e.code == "response_failures" for e in result.evidence)
 
 
+def test_cached_dns_success_does_not_hide_repeated_external_outage():
+    rounds = [round_at(0), round_at(1, tcp_fail=True, https_fail=True),
+              round_at(2, tcp_fail=True, https_fail=True)]
+    result = classify(rounds)
+    assert result.weather == Weather.OFFLINE
+    assert any(e.code == "multi_target_outage" for e in result.evidence)
+    assert result.cause is None
+
+
+def test_one_outage_round_or_missing_probes_cannot_confirm_offline():
+    one_failure = [round_at(0), round_at(1),
+                   round_at(2, tcp_fail=True, https_fail=True)]
+    assert classify(one_failure).weather != Weather.OFFLINE
+    incomplete = round_at(2, tcp_fail=True, https_fail=True)
+    incomplete = MeasurementRound(
+        incomplete.started_at, incomplete.finished_at,
+        tuple(p for p in incomplete.probes
+              if not (p.destination == "b.example" and p.kind == ProbeKind.HTTPS)),
+    )
+    assert classify([round_at(0), round_at(1, tcp_fail=True, https_fail=True),
+                     incomplete]).weather != Weather.OFFLINE
+
+
+def test_tls_error_is_evidence_of_external_contact_not_offline():
+    rounds = [round_at(0)]
+    for index in (1, 2):
+        original = round_at(index, tcp_fail=True, https_fail=True)
+        probes = tuple(
+            ProbeResult(p.at, p.destination, p.kind, ProbeStatus.TLS_ERROR, None)
+            if p.kind == ProbeKind.HTTPS else p for p in original.probes
+        )
+        rounds.append(MeasurementRound(original.started_at, original.finished_at, probes))
+    assert classify(rounds).weather != Weather.OFFLINE
+
+
+def test_latency_baselines_keep_targets_separate():
+    rounds = []
+    for index in range(3):
+        original = round_at(index)
+        probes = tuple(
+            ProbeResult(p.at, p.destination, p.kind, p.status, 300.0)
+            if p.kind == ProbeKind.TCP and p.destination == "a.example" else p
+            for p in original.probes
+        )
+        rounds.append(MeasurementRound(original.started_at, original.finished_at, probes))
+    result = classify(rounds, {"a.example": 300.0, "b.example": 20.0})
+    assert result.weather == Weather.SUNNY
+    uncertain = classify(rounds)
+    assert uncertain.weather == Weather.UNKNOWN
+    assert any(e.code == "single_target_latency" for e in uncertain.evidence)
+
+
+def test_multi_target_latency_uses_each_targets_baseline():
+    rounds = [round_at(index, tcp_ms=220) for index in range(3)]
+    result = classify(rounds, {"a.example": 30.0, "b.example": 40.0})
+    assert result.weather == Weather.CLOUDY
+    assert len([e for e in result.evidence if e.code == "high_latency"]) == 2
+
+
+def test_engine_baseline_uses_prior_samples_only_per_target():
+    engine = WeatherEngine()
+    for index in range(11):
+        engine.add(round_at(index, tcp_ms=20))
+    assert engine._baseline() == {"a.example": 20.0, "b.example": 20.0}
+
+
 def test_several_failure_types_make_storm():
     result = classify([round_at(i, tcp_fail=True, dns_fail=True, https_fail=False)
                        for i in range(3)])

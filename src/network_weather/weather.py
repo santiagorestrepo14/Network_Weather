@@ -8,7 +8,7 @@ from enum import StrEnum
 from itertools import pairwise
 from statistics import median
 
-from network_weather.models import MeasurementRound, ProbeKind, ProbeResult
+from network_weather.models import MeasurementRound, ProbeKind, ProbeResult, ProbeStatus
 
 
 class Weather(StrEnum):
@@ -59,7 +59,30 @@ def _comparable_jitter(results: list[ProbeResult]) -> float | None:
     return median(differences) if differences else None
 
 
-def classify(rounds: list[MeasurementRound], baseline_ms: float | None = None) -> Classification:
+def _confirmed_external_outage(
+    rounds: list[MeasurementRound], destinations: set[str],
+) -> bool:
+    """Require two complete rounds of failed TCP and HTTPS toward every target.
+
+    DNS success can come from cache, while a TLS or HTTP response proves that
+    some external connection occurred. Missing probes are insufficient evidence.
+    """
+    if len(rounds) < 2:
+        return False
+    failed = {ProbeStatus.TIMEOUT, ProbeStatus.TCP_ERROR}
+    for round_ in rounds[-2:]:
+        for host in destinations:
+            for kind in (ProbeKind.TCP, ProbeKind.HTTPS):
+                attempts = [p for p in round_.probes
+                            if p.destination == host and p.kind == kind]
+                if not attempts or any(p.status not in failed for p in attempts):
+                    return False
+    return True
+
+
+def classify(
+    rounds: list[MeasurementRound], baselines_ms: dict[str, float] | None = None,
+) -> Classification:
     """Classify the last five rounds. A single event never yields a problem state.
 
     HTTPS/TCP failures are response failures, not a measured IP packet-loss rate.
@@ -93,8 +116,10 @@ def classify(rounds: list[MeasurementRound], baseline_ms: float | None = None) -
     dns_rate = _rate(dns) or 0.0
     tcp_rate = _rate(tcp) or 0.0
     https_rate = _rate(https) or 0.0
-    tcp_success = [p.duration_ms for p in tcp if p.ok and p.duration_ms is not None]
-    latency = median(tcp_success) if tcp_success else None
+    tcp_by_destination: dict[str, list[float]] = {}
+    for probe in tcp:
+        if probe.ok and probe.duration_ms is not None:
+            tcp_by_destination.setdefault(probe.destination, []).append(probe.duration_ms)
     jitter = _comparable_jitter(tcp)
     evidence: list[Evidence] = []
     problems: list[Weather] = []
@@ -108,14 +133,13 @@ def classify(rounds: list[MeasurementRound], baseline_ms: float | None = None) -
                 "Gateway did not answer ICMP; it may filter echo requests",
             ))
 
-    # A failed destination alone cannot establish an Internet outage.
-    all_destinations_failed = all(
-        not any(p.ok for p in https if p.destination == host)
-        for host in destinations
-    )
-    tcp_all_failed = not any(p.ok for p in tcp)
-    if all_destinations_failed and tcp_all_failed and dns_rate >= 0.5:
-        evidence.append(Evidence("multi_target_outage", "No TCP or HTTPS response from multiple destinations", https_rate, 1.0))
+    # A failed destination or a cached DNS answer cannot establish an outage.
+    if _confirmed_external_outage(recent, destinations):
+        evidence.append(Evidence(
+            "multi_target_outage",
+            "No TCP or HTTPS response from multiple configured destinations in two rounds",
+            1.0, 1.0,
+        ))
         return Classification(Weather.OFFLINE, (), 0.8, 1.0, tuple(evidence), len(recent))
 
     if dns_rate >= 0.4:
@@ -134,11 +158,28 @@ def classify(rounds: list[MeasurementRound], baseline_ms: float | None = None) -
         if failed_rounds >= 2 and (tcp_rate >= 0.2 or network_rate >= 0.2):
             problems.append(Weather.RAINY)
             evidence.append(Evidence("response_failures", "TCP/HTTPS response failures observed", max(tcp_rate, network_rate), 0.2))
-    if latency is not None:
-        threshold = max(150.0, baseline_ms * 2 if baseline_ms else 150.0)
-        if latency >= threshold:
-            problems.append(Weather.CLOUDY)
-            evidence.append(Evidence("high_latency", "TCP connection time is elevated", latency, threshold))
+    elevated = []
+    for host, times in tcp_by_destination.items():
+        if len(times) < 2:
+            continue
+        baseline = (baselines_ms or {}).get(host)
+        threshold = max(150.0, baseline * 2 if baseline is not None else 150.0)
+        measured = median(times)
+        if measured >= threshold:
+            elevated.append((host, measured, threshold))
+    if len(elevated) >= 2:
+        problems.append(Weather.CLOUDY)
+        evidence.extend(
+            Evidence("high_latency", f"TCP connection time elevated toward {host}", measured,
+                     threshold)
+            for host, measured, threshold in elevated
+        )
+    elif elevated:
+        host, measured, threshold = elevated[0]
+        evidence.append(Evidence(
+            "single_target_latency", f"TCP time elevated only toward {host}",
+            measured, threshold,
+        ))
     if jitter is not None and jitter >= 30:
         problems.append(Weather.WINDY)
         evidence.append(Evidence("rtt_variation", "Variation between comparable TCP times", jitter, 30))
@@ -151,11 +192,15 @@ def classify(rounds: list[MeasurementRound], baseline_ms: float | None = None) -
         return Classification(Weather.STORMY, tuple(problems), 0.75, 0.8, tuple(evidence), len(recent))
     if problems:
         problem = problems[0]
-        confidence = 0.75 if baseline_ms is not None or problem != Weather.CLOUDY else 0.6
+        confidence = (0.75 if problem != Weather.CLOUDY or
+                      all((baselines_ms or {}).get(host) is not None
+                          for host, _, _ in elevated) else 0.6)
         return Classification(problem, (), confidence, 0.5, tuple(evidence), len(recent))
     if tls_errors or any(not p.ok for p in dns + tcp + https):
         evidence.append(Evidence("conflicting_results", "Some probes failed while others succeeded"))
         return Classification(Weather.UNKNOWN, (), 0.45, 0.0, tuple(evidence), len(recent))
+    if elevated:
+        return Classification(Weather.UNKNOWN, (), 0.5, 0.0, tuple(evidence), len(recent))
     counts = Counter(p.kind for p in probes)
     if min(counts.values()) < len(recent):
         return Classification(Weather.UNKNOWN, (), 0.4, 0.0,
@@ -203,9 +248,17 @@ class WeatherEngine:
             min(raw.confidence, 0.5), raw.severity, raw.evidence, raw.sample_rounds,
         )
 
-    def _baseline(self) -> float | None:
-        # Prior successful TCP samples only; never train from the current round.
-        prior = [p.duration_ms for round_ in self.rounds[:-1]
-                 for p in round_.probes if p.kind == ProbeKind.TCP and p.ok
-                 and p.duration_ms is not None]
-        return median(prior[-40:]) if len(prior) >= 20 else None
+    def _baseline(self) -> dict[str, float]:
+        # Prior TCP successes only, separated by destination and route context.
+        # The quicker half resists short degradations inflating the baseline.
+        prior: dict[str, list[float]] = {}
+        for round_ in self.rounds[:-1]:
+            for probe in round_.probes:
+                if probe.kind == ProbeKind.TCP and probe.ok and probe.duration_ms is not None:
+                    prior.setdefault(probe.destination, []).append(probe.duration_ms)
+        result = {}
+        for host, values in prior.items():
+            recent = sorted(values[-40:])
+            if len(recent) >= 10:
+                result[host] = median(recent[:max(1, len(recent) // 2)])
+        return result

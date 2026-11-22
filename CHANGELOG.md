@@ -10,5 +10,6 @@
 - Added a reproducible PyInstaller spec that avoids bundling an incompatible third-party ICU DLL.
 - Added indexed historical probe samples, legacy backfill, time and destination filters, categorical weather timeline and observed TCP latency chart.
 - Added incident details with duration, peak severity and measured evidence, without unsupported cause attribution.
+- Tightened outage classification across repeated complete rounds and separated latency baselines by destination.
 
 This is a development snapshot. No release or executable has been published.
