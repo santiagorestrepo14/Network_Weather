@@ -276,14 +276,25 @@ class HistoryStore:
         ]
 
     def end_active_incident_for_route_change(self, at: datetime) -> None:
+        self._end_active_incident_for_context_change(
+            at, "route_changed", "Observation context changed; recovery was not confirmed")
+
+    def end_active_incident_for_gap(self, last_observed_at: datetime) -> None:
+        self._end_active_incident_for_context_change(
+            last_observed_at, "observation_gap",
+            "Monitoring was interrupted; recovery was not confirmed")
+
+    def _end_active_incident_for_context_change(
+        self, at: datetime, code: str, detail: str,
+    ) -> None:
         active = self.connection.execute(
             "SELECT id, evidence FROM incidents WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1"
         ).fetchone()
         if active:
             evidence = json.loads(active[1])
             evidence.append({
-                "code": "route_changed",
-                "detail": "Observation context changed; recovery was not confirmed",
+                "code": code,
+                "detail": detail,
                 "observed": None,
                 "threshold": None,
             })
@@ -299,6 +310,16 @@ class HistoryStore:
         from datetime import UTC, timedelta
 
         cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+        active = self.connection.execute(
+            "SELECT started_at FROM incidents WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        if active:
+            latest = self.connection.execute(
+                "SELECT finished_at FROM rounds ORDER BY finished_at DESC LIMIT 1"
+            ).fetchone()
+            last_observed = latest[0] if latest else active[0]
+            if last_observed < cutoff:
+                self.end_active_incident_for_gap(datetime.fromisoformat(last_observed))
         with self.connection:
             cursor = self.connection.execute("DELETE FROM rounds WHERE started_at < ?", (cutoff,))
             removed_rounds = cursor.rowcount

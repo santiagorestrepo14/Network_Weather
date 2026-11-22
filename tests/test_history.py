@@ -141,3 +141,15 @@ def test_retention_removes_indexed_samples_with_old_rounds(tmp_path):
         store.save(round_, Classification(Weather.SUNNY, (), 0.8, 0, (), 3))
         assert store.prune(30) == 1
         assert store.connection.execute("SELECT COUNT(*) FROM probe_samples").fetchone()[0] == 0
+
+
+def test_retention_does_not_leave_stale_incident_active(tmp_path):
+    at = datetime(2020, 1, 1, tzinfo=UTC)
+    with HistoryStore(tmp_path / "stale-incident.db") as store:
+        round_ = MeasurementRound(at, at, ())
+        result = Classification(Weather.RAINY, (), 0.8, 0.5, (), 3)
+        store.save(round_, result)
+        store.advance_incident(round_, result)
+        assert store.incidents()[0]["ended_at"] is None
+        store.prune(30)
+        assert store.incidents() == []

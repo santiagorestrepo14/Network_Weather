@@ -17,14 +17,16 @@ class Monitor:
         self.config = config
         self.history = HistoryStore(database or default_data_dir() / "history.db")
         self.history.prune(config.retention_days)
-        self.engine = WeatherEngine()
+        self.engine = WeatherEngine(config.interval_seconds)
         for round_ in self.history.recent_rounds(60):
             self.engine.add(round_)
 
     def measure(self) -> tuple[MeasurementRound, Classification]:
         round_ = collect_once(self.config)
-        if (self.engine.rounds and self.engine.rounds[-1].route_adapter and round_.route_adapter
-                and self.engine.rounds[-1].route_adapter != round_.route_adapter):
+        if self.engine.observation_gap(round_):
+            self.history.end_active_incident_for_gap(self.engine.rounds[-1].finished_at)
+        elif (self.engine.rounds and self.engine.rounds[-1].route_adapter and round_.route_adapter
+              and self.engine.rounds[-1].route_adapter != round_.route_adapter):
             self.history.end_active_incident_for_route_change(round_.started_at)
         result = self.engine.add(round_)
         self.history.save(round_, result)

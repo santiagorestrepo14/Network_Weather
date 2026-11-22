@@ -15,5 +15,6 @@
 - Added optional read-only Native Wi-Fi quality, RSSI and channel context without scanning nearby networks.
 - Added a time-scaled compact chart with persisted latency/variation selection and gaps for missing observations.
 - Recover a floating widget whose saved position is outside the current display layout.
+- Reset classification after long observation gaps and end prior incidents at the last observed sample without claiming recovery.
 
 This is a development snapshot. No release or executable has been published.

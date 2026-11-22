@@ -213,15 +213,17 @@ def classify(
 class WeatherEngine:
     """Two consecutive candidate classifications are required for a transition."""
 
-    def __init__(self) -> None:
+    def __init__(self, interval_seconds: float = 30.0) -> None:
         self.rounds: list[MeasurementRound] = []
+        self.gap_limit_seconds = max(120.0, 3.0 * interval_seconds)
         self.current = Weather.UNKNOWN
         self._candidate = Weather.UNKNOWN
         self._candidate_count = 0
 
     def add(self, round_: MeasurementRound) -> Classification:
-        if (self.rounds and round_.route_adapter and self.rounds[-1].route_adapter
-                and round_.route_adapter != self.rounds[-1].route_adapter):
+        if (self.observation_gap(round_) or
+                (self.rounds and round_.route_adapter and self.rounds[-1].route_adapter
+                 and round_.route_adapter != self.rounds[-1].route_adapter)):
             self.rounds.clear()
             self.current = Weather.UNKNOWN
             self._candidate = Weather.UNKNOWN
@@ -247,6 +249,12 @@ class WeatherEngine:
             self.current, (raw.weather,) if raw.weather != Weather.UNKNOWN else (),
             min(raw.confidence, 0.5), raw.severity, raw.evidence, raw.sample_rounds,
         )
+
+    def observation_gap(self, round_: MeasurementRound) -> bool:
+        if not self.rounds:
+            return False
+        elapsed = (round_.started_at - self.rounds[-1].finished_at).total_seconds()
+        return elapsed < 0 or elapsed > self.gap_limit_seconds
 
     def _baseline(self) -> dict[str, float]:
         # Prior TCP successes only, separated by destination and route context.

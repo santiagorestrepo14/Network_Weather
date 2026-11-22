@@ -152,3 +152,26 @@ def test_route_change_resets_classification_window():
                                         changed.probes, route_adapter="Ethernet"))
     assert result.weather == Weather.UNKNOWN
     assert result.sample_rounds == 1
+
+
+def test_long_observation_gap_resets_classification_and_baseline():
+    engine = WeatherEngine(interval_seconds=30)
+    for index in range(12):
+        engine.add(round_at(index))
+    assert engine.current == Weather.SUNNY
+    assert engine._baseline() == {"a.example": 20.0, "b.example": 20.0}
+    resumed = round_at(100, tcp_fail=True, https_fail=True)
+    assert engine.observation_gap(resumed)
+    result = engine.add(resumed)
+    assert result.weather == Weather.UNKNOWN
+    assert result.sample_rounds == 1
+    assert engine._baseline() == {}
+
+
+def test_configured_slow_interval_is_not_mistaken_for_sleep():
+    engine = WeatherEngine(interval_seconds=3600)
+    first = round_at(0)
+    later = round_at(200)
+    engine.add(first)
+    assert not engine.observation_gap(later)
+    assert engine.add(later).sample_rounds == 2
