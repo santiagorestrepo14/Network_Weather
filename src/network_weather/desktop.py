@@ -76,6 +76,7 @@ from network_weather.incident_view import format_incident
 from network_weather.models import MeasurementRound, ProbeKind
 from network_weather.monitor import Monitor
 from network_weather.weather import Classification, Weather
+from network_weather.window_placement import visible_position
 
 COLORS = {
     Weather.SUNNY: ("#ffbf68", "#6d4ead"),
@@ -521,11 +522,12 @@ class WeatherWidget(QWidget):
         layout.addWidget(self.sparkline)
         self._apply_pin()
         saved = settings.value("widget_position")
-        if isinstance(saved, QPoint):
-            self.move(saved)
-        else:
-            screen = QApplication.primaryScreen().availableGeometry()
-            self.move(screen.right()-self.width()-25, screen.top()+25)
+        screen = QApplication.primaryScreen().availableGeometry()
+        requested = (saved if isinstance(saved, QPoint) else
+                     QPoint(screen.right()-self.width()-25, screen.top()+25))
+        self.move(visible_position(
+            requested, self.size(),
+            [item.availableGeometry() for item in QApplication.screens()], screen))
 
     def t(self, message: str) -> str:
         return translate(message, self.language)
@@ -555,6 +557,13 @@ class WeatherWidget(QWidget):
         self._apply_pin()
         self.move(position)
         self.show()
+
+    def ensure_visible(self) -> None:
+        app = QApplication.instance()
+        primary = app.primaryScreen().availableGeometry()
+        self.move(visible_position(
+            self.pos(), self.size(),
+            [screen.availableGeometry() for screen in app.screens()], primary))
 
     def update_measurement(self, round_: MeasurementRound, result: Classification) -> None:
         self.scene.set_weather(result.weather)
@@ -1042,6 +1051,7 @@ class DesktopController(QObject):
         self.tray.activated.connect(self._tray_activated)
         self.tray.show()
         self.widget.show()
+        self.widget.ensure_visible()
         if demo:
             self.widget.monitoring.setText(translate(
                 "●  MODO DEMOSTRACIÓN · sin mediciones reales", self.language))
@@ -1072,6 +1082,7 @@ class DesktopController(QObject):
 
     def show_widget(self) -> None:
         self.widget.show()
+        self.widget.ensure_visible()
         self.widget.raise_()
         self.widget.activateWindow()
 

@@ -24,6 +24,8 @@ The history panel offers one hour, 24-hour, 7-day, 30-day and custom ranges, wit
 
 The compact widget chart switches between **Latency** and **Variation** and remembers the choice. It shows real timestamps for the last 30 rounds, including stored rounds from before launch. Each latency point averages successful TCP samples in its round. Variation averages absolute changes for the same destinations in adjacent successful rounds; failures and long pauses break comparison. Missing samples are neither plotted nor joined.
 
+If a saved widget position is outside all current displays, such as after unplugging a monitor, opening the widget brings it back into the visible area.
+
 Selecting an incident displays its start, end, duration, peak severity and latest persisted evidence. The UI leaves the cause unidentified when the available probes cannot establish it.
 
 Choose **Settings → Language** to switch between Spanish and English. Restart the app to apply the saved choice. Raw error messages from Windows or external servers may retain their original language.

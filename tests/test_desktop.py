@@ -7,7 +7,7 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 pytest.importorskip("PySide6")
 
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QPoint, QSettings
 from PySide6.QtGui import QColor, QImage, QImageReader
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
@@ -208,3 +208,16 @@ def test_compact_metric_selection_and_observed_history_persist(tmp_path):
     assert restarted.metric_select.currentData() == "variation"
     restarted.hide()
     app.processEvents()
+
+
+def test_widget_restores_saved_position_on_an_available_screen(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    settings.setValue("widget_position", QPoint(999999, 999999))
+    widget = WeatherWidget(settings)
+    widget.show()
+    widget.ensure_visible()
+    app.processEvents()
+    assert any(screen.availableGeometry().contains(widget.geometry())
+               for screen in app.screens())
+    widget.hide()

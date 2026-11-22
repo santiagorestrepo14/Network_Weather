@@ -14,5 +14,6 @@
 - Added a persistent Spanish/English language setting for the widget, panel, charts, incident details and tray.
 - Added optional read-only Native Wi-Fi quality, RSSI and channel context without scanning nearby networks.
 - Added a time-scaled compact chart with persisted latency/variation selection and gaps for missing observations.
+- Recover a floating widget whose saved position is outside the current display layout.
 
 This is a development snapshot. No release or executable has been published.

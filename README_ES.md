@@ -26,6 +26,8 @@ python -m ruff check .
 
 La gráfica del widget compacto permite elegir **Latencia** o **Variación** y recuerda la elección. Su eje horizontal usa las horas reales de las últimas 30 rondas, incluidas las guardadas antes de abrir la aplicación. Cada punto de latencia promedia los éxitos TCP de la ronda. La variación compara cada destino con su valor en la ronda inmediatamente anterior y promedia esas diferencias absolutas; los fallos y las pausas largas cortan la comparación. Las muestras ausentes quedan sin punto y no se unen por una línea.
 
+Si la posición guardada del widget queda fuera de las pantallas disponibles (por ejemplo, al desconectar un monitor), la aplicación lo devuelve al área visible al abrirlo.
+
 En **Configuración → Idioma**, elige Español o English. La preferencia se aplica al reiniciar la aplicación y se conserva para las siguientes sesiones. Los mensajes técnicos devueltos por Windows o por un servidor externo pueden aparecer en el idioma original de ese sistema.
 
 Vista actual del widget en modo demostración: ![Widget de tormenta, versión de desarrollo](docs/widget-demo-v2.png)
