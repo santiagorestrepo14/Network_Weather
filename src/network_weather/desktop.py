@@ -60,6 +60,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from network_weather.compact_history import CompactPoint, compact_points, visible_segments
 from network_weather.config import ProbeConfig, default_data_dir
 from network_weather.history import HistoryStore
 from network_weather.history_chart import PALETTE, HistoryChart, weather_segments
@@ -72,7 +73,6 @@ from network_weather.i18n import (
     weather_name,
 )
 from network_weather.incident_view import format_incident
-from network_weather.metrics import summarize
 from network_weather.models import MeasurementRound, ProbeKind
 from network_weather.monitor import Monitor
 from network_weather.weather import Classification, Weather
@@ -318,33 +318,73 @@ class MetricCard(QFrame):
 
 
 class Sparkline(QWidget):
-    def __init__(self) -> None:
+    def __init__(self, language: str = "es") -> None:
         super().__init__()
-        self.samples: list[float | None] = []
-        self.setMinimumHeight(60)
+        self.language = normalize_language(language)
+        self.points: tuple[CompactPoint, ...] = ()
+        self.chart_metric = "latency"
+        self.setMinimumHeight(78)
+
+    def set_points(self, points: tuple[CompactPoint, ...]) -> None:
+        self.points = points
+        self.update()
+
+    def set_metric(self, metric: str) -> None:
+        if metric not in {"latency", "variation"}:
+            raise ValueError("Unsupported compact metric")
+        self.chart_metric = metric
+        self.update()
 
     def paintEvent(self, _event: object) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.fillRect(self.rect(), QColor("#27264c"))
-        points = [(i, value) for i, value in enumerate(self.samples) if value is not None]
-        if len(points) >= 2:
-            values = [value for _, value in points]
+        if not self.points:
+            message = "No samples yet" if self.language == "en" else "Aún no hay muestras"
+            p.setPen(QColor("#b9b0dc"))
+            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, message)
+            p.end()
+            return
+        values = [value for point in self.points
+                  if (value := point.value(self.chart_metric)) is not None]
+        first, last = self.points[0].at, self.points[-1].at
+        span = max(1.0, (last - first).total_seconds())
+        left, width = 8, max(1, self.width() - 16)
+        plot_top, plot_bottom = 15, max(16, self.height() - 23)
+
+        def x(point: CompactPoint) -> int:
+            return int(left + (point.at - first).total_seconds() / span * width)
+
+        if values:
             low, high = min(values), max(values)
-            scale = max(10, high - low)
+            margin = max(5.0, (high - low) * 0.15)
+            low, high = max(0.0, low - margin), high + margin
+
+            def y(value: float) -> int:
+                return int(plot_bottom - (value - low) / max(1.0, high - low)
+                           * (plot_bottom - plot_top))
+
             p.setPen(QPen(QColor("#ee79d1"), 2))
-            previous = None
-            for index, value in points:
-                x = 8 + index * (self.width()-16) / max(1, len(self.samples)-1)
-                y = self.height()-8 - (value-low) / scale * (self.height()-20)
-                point = QPoint(int(x), int(y))
-                if previous and index == previous[0] + 1:
-                    p.drawLine(previous[1], point)
-                previous = (index, point)
+            for previous, current in visible_segments(self.points, self.chart_metric):
+                p.drawLine(QPoint(x(previous), y(previous.value(self.chart_metric))),
+                           QPoint(x(current), y(current.value(self.chart_metric))))
+            p.setBrush(QColor("#ffc0ef"))
+            for point in self.points:
+                value = point.value(self.chart_metric)
+                if value is not None:
+                    p.drawEllipse(QPoint(x(point), y(value)), 2, 2)
+            p.setPen(QColor("#d3c8f4"))
+            p.drawText(8, 12, f"{max(values):.0f} ms")
+        stamp_format = "%d/%m %H:%M" if (last - first).total_seconds() >= 86400 else "%H:%M"
+        p.setPen(QColor("#b9b0dc"))
+        p.drawText(left, self.height() - 4, first.astimezone().strftime(stamp_format))
+        p.drawText(QRectF(left, self.height() - 19, width, 17),
+                   Qt.AlignmentFlag.AlignRight, last.astimezone().strftime(stamp_format))
         p.end()
 
 
 class MonitorThread(QThread):
+    initial_history = Signal(object)
     measured = Signal(object, object, object)
     failed = Signal(str)
 
@@ -357,6 +397,7 @@ class MonitorThread(QThread):
     def run(self) -> None:
         try:
             with Monitor(self.config) as monitor:
+                self.initial_history.emit(monitor.history.recent_rounds(30))
                 while not self.stop_event.is_set():
                     try:
                         round_, result = monitor.measure()
@@ -460,10 +501,23 @@ class WeatherWidget(QWidget):
         for card in self.cards.values():
             metrics.addWidget(card)
         layout.addLayout(metrics)
-        self.sparkline = Sparkline()
-        history_caption = QLabel(self.t("Historial TCP · promedio por ronda"))
+        self.sparkline = Sparkline(self.language)
+        history_row = QHBoxLayout()
+        history_caption = QLabel(self.t("Historial TCP · muestras por ronda"))
         history_caption.setStyleSheet("color:#b9b0dc;font-size:10px")
-        layout.addWidget(history_caption)
+        self.metric_select = QComboBox()
+        self.metric_select.addItem(self.t("Latencia"), "latency")
+        self.metric_select.addItem(self.t("Variación"), "variation")
+        self.metric_select.setFixedWidth(112)
+        saved_metric = settings.value("compact_metric", "latency")
+        selected = self.metric_select.findData(saved_metric)
+        self.metric_select.setCurrentIndex(max(0, selected))
+        self.sparkline.set_metric(self.metric_select.currentData())
+        self.metric_select.currentIndexChanged.connect(self._metric_changed)
+        history_row.addWidget(history_caption)
+        history_row.addStretch()
+        history_row.addWidget(self.metric_select)
+        layout.addLayout(history_row)
         layout.addWidget(self.sparkline)
         self._apply_pin()
         saved = settings.value("widget_position")
@@ -475,6 +529,17 @@ class WeatherWidget(QWidget):
 
     def t(self, message: str) -> str:
         return translate(message, self.language)
+
+    def _metric_changed(self, _index: int) -> None:
+        metric = self.metric_select.currentData()
+        self.sparkline.set_metric(metric)
+        self.settings.setValue("compact_metric", metric)
+
+    def update_history(self, points: tuple[CompactPoint, ...]) -> None:
+        self.sparkline.set_points(points)
+        variation = points[-1].variation_ms if points else None
+        self.cards["jitter"].value.setText(
+            f"{variation:.0f} ms" if variation is not None else "—")
 
     def _apply_pin(self) -> None:
         pinned = self.settings.value("pinned", False, type=bool)
@@ -505,14 +570,6 @@ class WeatherWidget(QWidget):
         )
         self.cards["dns"].value.setText("OK" if dns and all(p.ok for p in dns)
                                         else self.t("Error") if dns else "—")
-        # The graph receives one observed TCP value per round. No interpolated points.
-        self.sparkline.samples.append(sum(times)/len(times) if times else None)
-        self.sparkline.samples = self.sparkline.samples[-30:]
-        self.sparkline.update()
-        self.cards["jitter"].value.setText("—")
-
-    def set_jitter(self, value: float | None) -> None:
-        self.cards["jitter"].value.setText(f"{value:.0f} ms" if value is not None else "—")
 
     def mousePressEvent(self, event: object) -> None:
         if event.button() == Qt.MouseButton.LeftButton and event.position().y() < 52:
@@ -971,7 +1028,7 @@ class DesktopController(QObject):
         self.history_worker: HistoryQueryThread | None = None
         self.history_pending = False
         self.worker: MonitorThread | None = None
-        self.recent_tcp = []
+        self.recent_rounds: list[MeasurementRound] = []
         self.demo_index = 0
 
         self.tray = QSystemTrayIcon(icon(), app)
@@ -1004,6 +1061,7 @@ class DesktopController(QObject):
             except ValueError:
                 config = ProbeConfig()
             self.worker = MonitorThread(config, self.language)
+            self.worker.initial_history.connect(self._history_seed)
             self.worker.measured.connect(self._measured)
             self.worker.failed.connect(self._failed)
             self.worker.start()
@@ -1025,16 +1083,17 @@ class DesktopController(QObject):
     def _measured(self, round_: MeasurementRound, result: Classification,
                   incidents: list[dict]) -> None:
         self.widget.update_measurement(round_, result)
+        self.recent_rounds.append(round_)
+        self.recent_rounds = self.recent_rounds[-30:]
+        self.widget.update_history(compact_points(self.recent_rounds))
         self.panel.update_measurement(round_, result)
         self.tray.setToolTip(f"Network Weather · {weather_name(result.weather, self.language)}")
-        self.recent_tcp.extend(p for p in round_.probes if p.kind == ProbeKind.TCP)
-        self.recent_tcp = self.recent_tcp[-60:]
-        if self.recent_tcp:
-            destination = self.recent_tcp[-1].destination
-            summary = summarize(self.recent_tcp, destination, ProbeKind.TCP)
-            self.widget.set_jitter(summary.jitter_ms)
         if self.panel.nav.currentRow() in (2, 3):
             self._request_history()
+
+    def _history_seed(self, rounds: list[MeasurementRound]) -> None:
+        self.recent_rounds = rounds[-30:]
+        self.widget.update_history(compact_points(self.recent_rounds))
 
     def _request_history(self) -> None:
         if self.demo:

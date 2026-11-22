@@ -106,7 +106,7 @@ EN = {
     "Latencia": "Latency",
     "Variación": "Variation",
     "Fallos TCP": "TCP failures",
-    "Historial TCP · promedio por ronda": "TCP history · average per round",
+    "Historial TCP · muestras por ronda": "TCP history · samples by round",
     "Resumen": "Overview",
     "Diagnóstico": "Diagnostics",
     "Historial": "History",

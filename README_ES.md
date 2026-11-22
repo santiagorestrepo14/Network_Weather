@@ -24,6 +24,8 @@ python -m ruff check .
 
 `network-weather-desktop` abre el widget y empieza a medir en un hilo separado. El botón central abre el panel, el botón de minimizar lo oculta en la bandeja y **Salir** en el menú de bandeja detiene el hilo. El cierre del widget también lo oculta. El historial permite elegir una hora, 24 horas, 7 días, 30 días o un rango personalizado y filtrar la latencia TCP por destino. La franja de clima muestra estados categóricos observados; el gráfico inferior promedia solo latencias TCP válidas por intervalo y deja visibles los periodos sin observación. La consulta SQLite se realiza fuera del hilo gráfico. `--demo` recorre los ocho climas sin hacer sondas ni escribir muestras; todas las tarjetas muestran «demo». La posición, fijación, imágenes y preferencias se guardan en `%LOCALAPPDATA%\NetworkWeather\settings.ini`.
 
+La gráfica del widget compacto permite elegir **Latencia** o **Variación** y recuerda la elección. Su eje horizontal usa las horas reales de las últimas 30 rondas, incluidas las guardadas antes de abrir la aplicación. Cada punto de latencia promedia los éxitos TCP de la ronda. La variación compara cada destino con su valor en la ronda inmediatamente anterior y promedia esas diferencias absolutas; los fallos y las pausas largas cortan la comparación. Las muestras ausentes quedan sin punto y no se unen por una línea.
+
 En **Configuración → Idioma**, elige Español o English. La preferencia se aplica al reiniciar la aplicación y se conserva para las siguientes sesiones. Los mensajes técnicos devueltos por Windows o por un servidor externo pueden aparecer en el idioma original de ese sistema.
 
 Vista actual del widget en modo demostración: ![Widget de tormenta, versión de desarrollo](docs/widget-demo-v2.png)

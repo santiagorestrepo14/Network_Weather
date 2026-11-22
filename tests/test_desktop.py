@@ -11,9 +11,16 @@ from PySide6.QtCore import QSettings
 from PySide6.QtGui import QColor, QImage, QImageReader
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
+from network_weather.compact_history import compact_points
 from network_weather.desktop import ExpandedPanel, WeatherScene, WeatherWidget
 from network_weather.history import HistorySeries, LatencyBin, WeatherPoint
-from network_weather.models import MeasurementRound, WifiSnapshot
+from network_weather.models import (
+    MeasurementRound,
+    ProbeKind,
+    ProbeResult,
+    ProbeStatus,
+    WifiSnapshot,
+)
 from network_weather.weather import Classification, Weather
 
 
@@ -174,4 +181,30 @@ def test_diagnostics_show_observed_wifi_without_claiming_it_is_the_route(tmp_pat
     assert "route not confirmed" in diagnostic
     panel.close()
     widget.hide()
+    app.processEvents()
+
+
+def test_compact_metric_selection_and_observed_history_persist(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    widget = WeatherWidget(settings)
+    at = datetime(2026, 11, 22, tzinfo=UTC)
+    rounds = [MeasurementRound(
+        at + timedelta(seconds=offset), at + timedelta(seconds=offset),
+        (ProbeResult(at + timedelta(seconds=offset), "example.test", ProbeKind.TCP,
+                     ProbeStatus.SUCCESS, latency),),
+    ) for offset, latency in ((0, 20.0), (30, 35.0))]
+    widget.update_history(compact_points(rounds))
+    assert widget.cards["jitter"].value.text() == "15 ms"
+    assert widget.sparkline.points[-1].at == at + timedelta(seconds=30)
+    widget.metric_select.setCurrentIndex(widget.metric_select.findData("variation"))
+    assert settings.value("compact_metric") == "variation"
+    assert widget.sparkline.chart_metric == "variation"
+    widget.show()
+    app.processEvents()
+    assert not widget.sparkline.grab().isNull()
+    widget.hide()
+    restarted = WeatherWidget(settings)
+    assert restarted.metric_select.currentData() == "variation"
+    restarted.hide()
     app.processEvents()

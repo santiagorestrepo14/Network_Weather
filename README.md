@@ -22,6 +22,8 @@ The desktop starts monitoring in a worker thread. Close or minimize the widget t
 
 The history panel offers one hour, 24-hour, 7-day, 30-day and custom ranges, with a destination filter for TCP latency. Weather is shown as observed categorical states; the separate latency chart contains only valid TCP samples averaged within time bins. Unobserved periods remain visible. SQLite history queries run in a worker thread.
 
+The compact widget chart switches between **Latency** and **Variation** and remembers the choice. It shows real timestamps for the last 30 rounds, including stored rounds from before launch. Each latency point averages successful TCP samples in its round. Variation averages absolute changes for the same destinations in adjacent successful rounds; failures and long pauses break comparison. Missing samples are neither plotted nor joined.
+
 Selecting an incident displays its start, end, duration, peak severity and latest persisted evidence. The UI leaves the cause unidentified when the available probes cannot establish it.
 
 Choose **Settings → Language** to switch between Spanish and English. Restart the app to apply the saved choice. Raw error messages from Windows or external servers may retain their original language.

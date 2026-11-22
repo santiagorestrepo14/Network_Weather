@@ -13,5 +13,6 @@
 - Tightened outage classification across repeated complete rounds and separated latency baselines by destination.
 - Added a persistent Spanish/English language setting for the widget, panel, charts, incident details and tray.
 - Added optional read-only Native Wi-Fi quality, RSSI and channel context without scanning nearby networks.
+- Added a time-scaled compact chart with persisted latency/variation selection and gaps for missing observations.
 
 This is a development snapshot. No release or executable has been published.
