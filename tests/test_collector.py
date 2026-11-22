@@ -1,7 +1,13 @@
 from datetime import UTC, datetime
 
 from network_weather.config import ProbeConfig
-from network_weather.models import AdapterSnapshot, ProbeKind, ProbeResult, ProbeStatus
+from network_weather.models import (
+    AdapterSnapshot,
+    ProbeKind,
+    ProbeResult,
+    ProbeStatus,
+    WifiSnapshot,
+)
 
 
 def test_ipv6_socket_identifies_adapter_and_gateway(monkeypatch):
@@ -27,6 +33,14 @@ def test_ipv6_socket_identifies_adapter_and_gateway(monkeypatch):
             return "192.0.2.1"
 
     monkeypatch.setattr(collector, "_gateways", FakeCache())
+    class FakeWifiCache:
+        def invalidate(self):
+            pass
+
+        def current(self):
+            return (WifiSnapshot("Test radio", 70, -65, 6),)
+
+    monkeypatch.setattr(collector, "_wifi", FakeWifiCache())
     monkeypatch.setattr(collector, "_last_route_adapter", None)
     monkeypatch.setattr(collector, "ping_gateway", lambda address: ProbeResult(
         at, address, ProbeKind.ICMP, ProbeStatus.SUCCESS, None,
@@ -35,4 +49,5 @@ def test_ipv6_socket_identifies_adapter_and_gateway(monkeypatch):
     assert round_.route_adapter == "Ethernet"
     assert round_.gateway_address == "192.0.2.1"
     assert round_.probes[-1].kind == ProbeKind.ICMP
+    assert round_.wifi[0].signal_quality_percent == 70
 

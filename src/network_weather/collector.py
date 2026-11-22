@@ -4,9 +4,11 @@ from network_weather.adapters import get_adapters
 from network_weather.config import ProbeConfig
 from network_weather.models import MeasurementRound, utc_now
 from network_weather.probes import probe_destination
+from network_weather.wifi import WifiCache
 from network_weather.windows_network import GatewayCache, ping_gateway
 
 _gateways = GatewayCache()
+_wifi = WifiCache()
 _last_route_adapter: str | None = None
 
 
@@ -29,8 +31,10 @@ def collect_once(config: ProbeConfig) -> MeasurementRound:
     route_adapter = next(iter(matching)) if len(matching) == 1 else None
     if route_adapter and route_adapter != _last_route_adapter:
         _gateways.invalidate()
+        _wifi.invalidate()
     _last_route_adapter = route_adapter
     gateway = _gateways.for_adapter(route_adapter)
     if gateway:
         results.append(ping_gateway(gateway))
-    return MeasurementRound(started, utc_now(), tuple(results), adapters, route_adapter, gateway)
+    return MeasurementRound(started, utc_now(), tuple(results), adapters, route_adapter,
+                            gateway, _wifi.current())

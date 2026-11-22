@@ -13,7 +13,8 @@ from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 from network_weather.desktop import ExpandedPanel, WeatherScene, WeatherWidget
 from network_weather.history import HistorySeries, LatencyBin, WeatherPoint
-from network_weather.weather import Weather
+from network_weather.models import MeasurementRound, WifiSnapshot
+from network_weather.weather import Classification, Weather
 
 
 def test_custom_weather_image_is_copied_and_persisted(tmp_path, monkeypatch):
@@ -152,4 +153,25 @@ def test_language_choice_persists_for_next_launch(tmp_path, monkeypatch):
     assert restarted_panel.nav.item(4).text() == "Settings"
     restarted_panel.close()
     restarted_widget.hide()
+    app.processEvents()
+
+
+def test_diagnostics_show_observed_wifi_without_claiming_it_is_the_route(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    settings.setValue("language", "en")
+    widget = WeatherWidget(settings)
+    panel = ExpandedPanel(settings, widget)
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    round_ = MeasurementRound(at, at, (), wifi=(WifiSnapshot("Test radio", 68, -66, 44),))
+    result = Classification(Weather.UNKNOWN, (), 0, 0, (), 1)
+    panel.update_measurement(round_, result)
+    diagnostic = panel.diagnostic_label.text()
+    assert "Test radio" in diagnostic
+    assert "Signal quality: 68%" in diagnostic
+    assert "RSSI: -66 dBm" in diagnostic
+    assert "Channel: 44" in diagnostic
+    assert "route not confirmed" in diagnostic
+    panel.close()
+    widget.hide()
     app.processEvents()

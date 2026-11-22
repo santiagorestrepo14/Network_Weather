@@ -10,6 +10,7 @@ from network_weather.models import (
     ProbeKind,
     ProbeResult,
     ProbeStatus,
+    WifiSnapshot,
 )
 from network_weather.weather import Classification, Evidence, Weather
 
@@ -23,6 +24,7 @@ def test_history_survives_reopening(tmp_path):
                          ("2001:db8::5",)),),
         route_adapter="Ethernet",
         gateway_address="192.0.2.1",
+        wifi=(WifiSnapshot("Test radio", 70, -60, 44),),
     )
     classification = Classification(
         Weather.UNKNOWN, (), 0.2, 0.0,
@@ -37,6 +39,7 @@ def test_history_survives_reopening(tmp_path):
         assert loaded[0].probes == round_.probes
         assert loaded[0].adapters == round_.adapters
         assert loaded[0].gateway_address == "192.0.2.1"
+        assert loaded[0].wifi == round_.wifi
         assert store.recent_weather() == [(at.isoformat(), Weather.UNKNOWN)]
 
 

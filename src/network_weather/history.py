@@ -17,6 +17,7 @@ from network_weather.models import (
     ProbeKind,
     ProbeResult,
     ProbeStatus,
+    WifiSnapshot,
 )
 from network_weather.weather import Classification, Weather
 
@@ -340,4 +341,5 @@ def _decode_round(data: dict) -> MeasurementRound:
         ),
         route_adapter=data.get("route_adapter"),
         gateway_address=data.get("gateway_address"),
+        wifi=tuple(WifiSnapshot(**item) for item in data.get("wifi", ())),
     )

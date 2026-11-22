@@ -69,6 +69,22 @@ class AdapterSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class WifiSnapshot:
+    description: str
+    signal_quality_percent: int | None = None
+    rssi_dbm: int | None = None
+    channel: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.signal_quality_percent is not None and not 0 <= self.signal_quality_percent <= 100:
+            raise ValueError("Wi-Fi signal quality must be between 0 and 100")
+        if self.rssi_dbm is not None and not -120 <= self.rssi_dbm <= 0:
+            raise ValueError("Wi-Fi RSSI must be between -120 and 0 dBm")
+        if self.channel is not None and not 1 <= self.channel <= 233:
+            raise ValueError("Wi-Fi channel must be between 1 and 233")
+
+
+@dataclass(frozen=True, slots=True)
 class MeasurementRound:
     started_at: datetime
     finished_at: datetime
@@ -76,6 +92,7 @@ class MeasurementRound:
     adapters: tuple[AdapterSnapshot, ...] = field(default_factory=tuple)
     route_adapter: str | None = None
     gateway_address: str | None = None
+    wifi: tuple[WifiSnapshot, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -85,6 +102,7 @@ class MeasurementRound:
             "adapters": [asdict(adapter) for adapter in self.adapters],
             "route_adapter": self.route_adapter,
             "gateway_address": self.gateway_address,
+            "wifi": [asdict(snapshot) for snapshot in self.wifi],
         }
 
 

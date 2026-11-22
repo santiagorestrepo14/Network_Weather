@@ -12,5 +12,6 @@
 - Added incident details with duration, peak severity and measured evidence, without unsupported cause attribution.
 - Tightened outage classification across repeated complete rounds and separated latency baselines by destination.
 - Added a persistent Spanish/English language setting for the widget, panel, charts, incident details and tray.
+- Added optional read-only Native Wi-Fi quality, RSSI and channel context without scanning nearby networks.
 
 This is a development snapshot. No release or executable has been published.

@@ -930,6 +930,20 @@ class ExpandedPanel(QMainWindow):
             f"{gateway_label}: {round_.gateway_address or self.t('No identificada')}",
             "",
         ]
+        for wifi in round_.wifi:
+            heading = ("Connected Wi-Fi interface (route not confirmed)" if self.language == "en"
+                       else "Interfaz Wi-Fi conectada (ruta no confirmada)")
+            parts = [f"{heading}: {wifi.description}"]
+            if wifi.signal_quality_percent is not None:
+                label = "Signal quality" if self.language == "en" else "Calidad de señal"
+                parts.append(f"{label}: {wifi.signal_quality_percent}%")
+            if wifi.rssi_dbm is not None:
+                parts.append(f"RSSI: {wifi.rssi_dbm} dBm")
+            if wifi.channel is not None:
+                label = "Channel" if self.language == "en" else "Canal"
+                parts.append(f"{label}: {wifi.channel}")
+            lines.extend(parts)
+            lines.append("")
         for probe in round_.probes:
             duration = (f"{probe.duration_ms:.1f} ms" if probe.duration_ms is not None
                         else self.t("sin latencia válida"))
