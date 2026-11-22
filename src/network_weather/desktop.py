@@ -8,7 +8,7 @@ import sys
 import threading
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QRect, QRectF, QSettings, Qt, QThread, QTimer, Signal
+from PySide6.QtCore import QPoint, QRect, QRectF, QSettings, QSize, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
     QIcon,
@@ -142,32 +142,41 @@ class WeatherScene(QWidget):
         gradient.setColorAt(0.52, QColor(base))
         gradient.setColorAt(1, QColor("#17142f"))
         p.fillRect(rect, gradient)
-        image_path = self.settings.value(f"image/{self.weather.value}", "")
+        default_path = Path(__file__).parent / "assets" / f"{self.weather.value}.png"
+        image_path = self.settings.value(f"image/{self.weather.value}", "") or str(default_path)
         if image_path != self._cached_image_path:
             self._cached_image_path = image_path
-            self._cached_image = QImage(image_path) if image_path and Path(image_path).is_file() else QImage()
-        if image_path and Path(image_path).is_file():
-            image = self._cached_image
-            if not image.isNull():
-                mode = self.settings.value("image_fit", "cover")
-                if mode == "contain":
-                    scaled = image.scaled(self.size(), Qt.AspectRatioMode.KeepAspectRatio,
-                                          Qt.TransformationMode.SmoothTransformation)
-                    target = QRectF((self.width() - scaled.width()) / 2,
-                                    (self.height() - scaled.height()) / 2,
-                                    scaled.width(), scaled.height())
-                    p.drawImage(target, scaled)
-                elif mode == "center":
-                    p.drawImage(QPoint((self.width() - image.width()) // 2,
-                                       (self.height() - image.height()) // 2), image)
-                else:
-                    scaled = image.scaled(self.size(), Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                                          Qt.TransformationMode.SmoothTransformation)
-                    source = QRectF((scaled.width() - self.width()) / 2,
-                                    (scaled.height() - self.height()) / 2,
-                                    self.width(), self.height())
-                    p.drawImage(rect, scaled, source)
-                p.fillRect(rect, QColor(10, 9, 34, 80))
+            reader = QImageReader(image_path)
+            if reader.canRead():
+                native = reader.size()
+                target_width = max(self.width()*2, 144)
+                if native.width() > target_width:
+                    ratio = target_width / native.width()
+                    reader.setScaledSize(QSize(target_width, max(1, int(native.height()*ratio))))
+                self._cached_image = reader.read()
+            else:
+                self._cached_image = QImage()
+        image = self._cached_image
+        if not image.isNull():
+            mode = self.settings.value("image_fit", "cover")
+            if mode == "contain":
+                scaled = image.scaled(self.size(), Qt.AspectRatioMode.KeepAspectRatio,
+                                      Qt.TransformationMode.SmoothTransformation)
+                target = QRectF((self.width() - scaled.width()) / 2,
+                                (self.height() - scaled.height()) / 2,
+                                scaled.width(), scaled.height())
+                p.drawImage(target, scaled)
+            elif mode == "center":
+                p.drawImage(QPoint((self.width() - image.width()) // 2,
+                                   (self.height() - image.height()) // 2), image)
+            else:
+                scaled = image.scaled(self.size(), Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                                      Qt.TransformationMode.SmoothTransformation)
+                source = QRectF((scaled.width() - self.width()) / 2,
+                                (scaled.height() - self.height()) / 2,
+                                self.width(), self.height())
+                p.drawImage(rect, scaled, source)
+            p.fillRect(rect, QColor(10, 9, 34, 80))
         else:
             self._landscape(p, QColor(accent))
         if self.settings.value("effects", True, type=bool):

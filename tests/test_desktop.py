@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pytest
 
@@ -6,10 +7,10 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 pytest.importorskip("PySide6")
 
 from PySide6.QtCore import QSettings
-from PySide6.QtGui import QColor, QImage
+from PySide6.QtGui import QColor, QImage, QImageReader
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
-from network_weather.desktop import ExpandedPanel, WeatherWidget
+from network_weather.desktop import ExpandedPanel, WeatherScene, WeatherWidget
 from network_weather.weather import Weather
 
 
@@ -38,3 +39,20 @@ def test_custom_weather_image_is_copied_and_persisted(tmp_path, monkeypatch):
     panel.close()
     widget.hide()
     app.processEvents()
+
+
+def test_each_weather_has_a_readable_default_image(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    scene = WeatherScene(settings)
+    scene.timer.stop()
+    scene.resize(440, 210)
+    scene.show()
+    asset_dir = Path(__file__).parents[1] / "src" / "network_weather" / "assets"
+    for weather in Weather:
+        assert QImageReader(str(asset_dir / f"{weather.value}.png")).canRead()
+        scene.set_weather(weather)
+        app.processEvents()
+        assert not scene.grab().isNull()
+        assert not scene._cached_image.isNull()
+    scene.hide()

@@ -24,7 +24,7 @@ python -m ruff check .
 
 `network-weather-desktop` abre el widget y empieza a medir en un hilo separado. El botón central abre el panel, el botón de minimizar lo oculta en la bandeja y **Salir** en el menú de bandeja detiene el hilo. El cierre del widget también lo oculta. `--demo` recorre los ocho climas sin hacer sondas ni escribir muestras; todas las tarjetas muestran «demo». La posición, fijación, imágenes y preferencias se guardan en `%LOCALAPPDATA%\NetworkWeather\settings.ini`.
 
-Vista actual del widget en modo demostración: ![Widget de tormenta, versión de desarrollo](docs/widget-demo.png)
+Vista actual del widget en modo demostración: ![Widget de tormenta, versión de desarrollo](docs/widget-demo-v2.png)
 
 ## Qué se mide
 
@@ -41,7 +41,8 @@ Las duraciones de sondas fallidas son `null`. La latencia TCP excluye la resoluc
 - La clasificación exige tres rondas, dos destinos y dos clasificaciones candidatas consecutivas para cambiar de clima. Los incidentes quedan abiertos durante resultados desconocidos y cierran tras dos rondas soleadas. La causa permanece sin atribuir.
 - El motor de clima aún usa umbrales iniciales conservadores. Falta validar su comportamiento con conjuntos de datos reales de varios tipos de conexión antes de considerarlo diagnóstico definitivo.
 - El panel muestra las últimas rondas e incidentes, pero aún faltan filtros de tiempo, gráficas históricas completas, puerta de enlace, Wi-Fi detallado, idioma inglés en la interfaz y una evaluación de confianza específica para causas. No se atribuye ninguna causa a un proveedor.
-- Las escenas actuales están dibujadas con Qt y son redistribuibles. Su acabado es preliminar frente a las referencias visuales. Los efectos pueden apagarse y cada clima acepta una imagen PNG, JPG o WebP de hasta 10 MB y 4096 px, copiada al área de datos sin modificar el original.
+- Los ocho fondos predeterminados son ilustraciones propias creadas para este proyecto. Qt dibuja encima los efectos de lluvia, viento, niebla y relámpagos, que pueden apagarse sin perder la imagen. Cada clima acepta una imagen PNG, JPG o WebP de hasta 10 MB y 4096 px, copiada al área de datos sin modificar el original.
+- Existe un ZIP de vista previa para Windows generado con PyInstaller. Abre `NetworkWeather.exe --demo` para revisar las escenas o `NetworkWeather.exe` para sondear la red. El paquete aún necesita validación en un Windows limpio antes de considerarse instalador público.
 
 ## Secuencia
 

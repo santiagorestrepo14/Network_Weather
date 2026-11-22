@@ -20,6 +20,8 @@ By default, one round checks `example.com` and `www.wikipedia.org` with OS DNS r
 
 The desktop starts monitoring in a worker thread. Close or minimize the widget to keep monitoring in the system tray; choose **Exit** from the tray menu to stop. `--demo` cycles all eight visual states without network requests or synthetic history. Settings, widget position and imported weather images persist under `%LOCALAPPDATA%\NetworkWeather`.
 
-Current development preview (visual demo, no measured values): ![Storm widget preview](docs/widget-demo.png)
+A Windows preview ZIP has been built with PyInstaller, including the eight scene images. It still needs validation on a clean Windows machine before a public release.
+
+Current development preview (visual demo, no measured values): ![Storm widget preview](docs/widget-demo-v2.png)
 
 The DNS resolver may cache answers and has an OS-controlled timeout. Socket local addresses are matched to adapters when unambiguous; other routes remain unknown. Failed probes have no fabricated latency. TCP/HTTPS failure percentages are protocol-specific and are not IP packet-loss measurements. See [README_ES.md](README_ES.md) for metrics, limitations and the implementation sequence.
