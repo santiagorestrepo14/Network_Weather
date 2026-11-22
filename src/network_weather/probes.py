@@ -107,6 +107,7 @@ def probe_https(host: str, info: AddressInfo, timeout: float, path: str = "/") -
                     return _result(
                         host, ProbeKind.HTTPS, ProbeStatus.HTTP_ERROR, start,
                         detail="Malformed HTTP status line", address=address,
+                        local_address=local_address,
                     )
                 status = int(parts[1])
                 return _result(
@@ -114,16 +115,21 @@ def probe_https(host: str, info: AddressInfo, timeout: float, path: str = "/") -
                     address=address, http_status=status, local_address=local_address,
                 )
     except TimeoutError as exc:
-        return _result(host, ProbeKind.HTTPS, ProbeStatus.TIMEOUT, start, detail=f"{phase}: {exc}", address=address)
+        return _result(host, ProbeKind.HTTPS, ProbeStatus.TIMEOUT, start,
+                       detail=f"{phase}: {exc}", address=address,
+                       local_address=local_address)
     except ssl.SSLError as exc:
-        return _result(host, ProbeKind.HTTPS, ProbeStatus.TLS_ERROR, start, detail=str(exc), address=address)
+        return _result(host, ProbeKind.HTTPS, ProbeStatus.TLS_ERROR, start,
+                       detail=str(exc), address=address, local_address=local_address)
     except OSError as exc:
         status = {
             "tcp": ProbeStatus.TCP_ERROR,
             "tls": ProbeStatus.TLS_ERROR,
             "http": ProbeStatus.HTTP_ERROR,
         }[phase]
-        return _result(host, ProbeKind.HTTPS, status, start, detail=f"{phase}: {exc}", address=address)
+        return _result(host, ProbeKind.HTTPS, status, start,
+                       detail=f"{phase}: {exc}", address=address,
+                       local_address=local_address)
 
 
 def probe_destination(host: str, timeout: float, path: str = "/") -> tuple[ProbeResult, ...]:

@@ -177,8 +177,13 @@ def _decode_round(data: dict) -> MeasurementRound:
             for item in data["probes"]
         ),
         adapters=tuple(
-            AdapterSnapshot(**{**adapter, "ipv4": tuple(adapter["ipv4"])})
+            AdapterSnapshot(**{
+                **adapter,
+                "ipv4": tuple(adapter["ipv4"]),
+                "ipv6": tuple(adapter.get("ipv6", ())),
+            })
             for adapter in data["adapters"]
         ),
         route_adapter=data.get("route_adapter"),
+        gateway_address=data.get("gateway_address"),
     )

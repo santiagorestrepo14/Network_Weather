@@ -16,7 +16,10 @@ def test_history_survives_reopening(tmp_path):
     round_ = MeasurementRound(
         at, at,
         (ProbeResult(at, "example.com", ProbeKind.DNS, ProbeStatus.SUCCESS, 12.5),),
-        (AdapterSnapshot("Ethernet", True, ("192.0.2.5",), 1000, 10, 20),),
+        (AdapterSnapshot("Ethernet", True, ("192.0.2.5",), 1000, 10, 20,
+                         ("2001:db8::5",)),),
+        route_adapter="Ethernet",
+        gateway_address="192.0.2.1",
     )
     classification = Classification(
         Weather.UNKNOWN, (), 0.2, 0.0,
@@ -30,6 +33,7 @@ def test_history_survives_reopening(tmp_path):
         assert len(loaded) == 1
         assert loaded[0].probes == round_.probes
         assert loaded[0].adapters == round_.adapters
+        assert loaded[0].gateway_address == "192.0.2.1"
         assert store.recent_weather() == [(at.isoformat(), Weather.UNKNOWN)]
 
 

@@ -18,6 +18,11 @@ def get_adapters() -> tuple[AdapterSnapshot, ...]:
             for address in addresses.get(name, ())
             if address.family == socket.AF_INET
         )
+        ipv6 = tuple(
+            address.address.split("%")[0]
+            for address in addresses.get(name, ())
+            if address.family == socket.AF_INET6
+        )
         traffic = counters.get(name)
         result.append(
             AdapterSnapshot(
@@ -27,6 +32,7 @@ def get_adapters() -> tuple[AdapterSnapshot, ...]:
                 speed_mbps=state.speed if state.speed > 0 else None,
                 bytes_sent=traffic.bytes_sent if traffic else None,
                 bytes_received=traffic.bytes_recv if traffic else None,
+                ipv6=ipv6,
             )
         )
     return tuple(result)

@@ -12,6 +12,7 @@ class ProbeKind(StrEnum):
     DNS = "dns"
     TCP = "tcp"
     HTTPS = "https"
+    ICMP = "icmp"
 
 
 class ProbeStatus(StrEnum):
@@ -20,6 +21,7 @@ class ProbeStatus(StrEnum):
     TCP_ERROR = "tcp_error"
     TLS_ERROR = "tls_error"
     HTTP_ERROR = "http_error"
+    ICMP_ERROR = "icmp_error"
     TIMEOUT = "timeout"
 
 
@@ -63,6 +65,7 @@ class AdapterSnapshot:
     speed_mbps: int | None = None
     bytes_sent: int | None = None
     bytes_received: int | None = None
+    ipv6: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,8 +74,8 @@ class MeasurementRound:
     finished_at: datetime
     probes: tuple[ProbeResult, ...]
     adapters: tuple[AdapterSnapshot, ...] = field(default_factory=tuple)
-    # The OS route/interface actually used by each socket is not inferred here.
     route_adapter: str | None = None
+    gateway_address: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -81,6 +84,7 @@ class MeasurementRound:
             "probes": [probe.to_dict() for probe in self.probes],
             "adapters": [asdict(adapter) for adapter in self.adapters],
             "route_adapter": self.route_adapter,
+            "gateway_address": self.gateway_address,
         }
 
 

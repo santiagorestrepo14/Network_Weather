@@ -34,6 +34,19 @@ def test_stable_probes_are_sunny():
     assert result.confidence > result.severity
 
 
+def test_gateway_ping_failure_does_not_override_external_success():
+    rounds = []
+    for index in range(3):
+        base = round_at(index)
+        icmp = ProbeResult(base.started_at, "192.0.2.1", ProbeKind.ICMP,
+                           ProbeStatus.ICMP_ERROR, None)
+        rounds.append(MeasurementRound(base.started_at, base.finished_at,
+                                       (*base.probes, icmp)))
+    result = classify(rounds)
+    assert result.weather == Weather.SUNNY
+    assert any(e.code == "gateway_echo_unanswered" for e in result.evidence)
+
+
 def test_one_failed_round_does_not_make_rain():
     result = classify([round_at(0), round_at(1, tcp_fail=True), round_at(2)])
     assert result.weather == Weather.UNKNOWN

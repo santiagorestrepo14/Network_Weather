@@ -98,6 +98,15 @@ def classify(rounds: list[MeasurementRound], baseline_ms: float | None = None) -
     jitter = _comparable_jitter(tcp)
     evidence: list[Evidence] = []
     problems: list[Weather] = []
+    gateway_icmp = [p for p in probes if p.kind == ProbeKind.ICMP]
+    if gateway_icmp:
+        if any(p.ok for p in gateway_icmp):
+            evidence.append(Evidence("gateway_echo_replied", "Local gateway answered ICMP echo"))
+        else:
+            evidence.append(Evidence(
+                "gateway_echo_unanswered",
+                "Gateway did not answer ICMP; it may filter echo requests",
+            ))
 
     # A failed destination alone cannot establish an Internet outage.
     all_destinations_failed = all(
@@ -152,7 +161,7 @@ def classify(rounds: list[MeasurementRound], baseline_ms: float | None = None) -
         return Classification(Weather.UNKNOWN, (), 0.4, 0.0,
                               (Evidence("sparse_samples", "Insufficient protocol coverage"),), len(recent))
     return Classification(Weather.SUNNY, (), 0.8, 0.0,
-                          (Evidence("all_probes_ok", "DNS, TCP and HTTPS responded across multiple destinations"),),
+                          (*evidence, Evidence("all_probes_ok", "DNS, TCP and HTTPS responded across multiple destinations")),
                           len(recent))
 
 

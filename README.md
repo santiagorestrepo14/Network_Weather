@@ -24,4 +24,4 @@ A Windows preview ZIP has been built with PyInstaller, including the eight scene
 
 Current development preview (visual demo, no measured values): ![Storm widget preview](docs/widget-demo-v2.png)
 
-The DNS resolver may cache answers and has an OS-controlled timeout. Socket local addresses are matched to adapters when unambiguous; other routes remain unknown. Failed probes have no fabricated latency. TCP/HTTPS failure percentages are protocol-specific and are not IP packet-loss measurements. See [README_ES.md](README_ES.md) for metrics, limitations and the implementation sequence.
+The DNS resolver may cache answers and has an OS-controlled timeout. Socket local IPv4/IPv6 addresses are matched to adapters when unambiguous; other routes remain unknown. A cached, read-only Windows query identifies the IPv4 gateway, followed by an ICMP echo check when available. ICMP success has no fabricated RTT, and missing echo does not prove a local outage. TCP/HTTPS failure percentages are protocol-specific and are not IP packet-loss measurements. See [README_ES.md](README_ES.md) for metrics, limitations and the implementation sequence.

@@ -33,3 +33,11 @@ def test_absent_samples_are_unknown():
     assert summary.median_ms is None
     assert summary.jitter_ms is None
     assert summary.failure_percent is None
+
+
+def test_icmp_success_without_parsed_rtt_is_still_success():
+    result = ProbeResult(BASE, "192.0.2.1", ProbeKind.ICMP, ProbeStatus.SUCCESS, None)
+    summary = summarize([result], "192.0.2.1", ProbeKind.ICMP)
+    assert summary.successful == 1
+    assert summary.failure_percent == 0
+    assert summary.median_ms is None

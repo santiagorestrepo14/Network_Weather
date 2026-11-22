@@ -35,12 +35,13 @@ Las duraciones de sondas fallidas son `null`. La latencia TCP excluye la resoluc
 ## Límites actuales
 
 - La resolución DNS usa el resolvedor de Windows, que puede responder desde caché y controla su propio timeout. Por ello su tiempo no mide siempre una consulta remota y un bloqueo largo del resolvedor puede prolongar una ronda.
-- Los sockets registran su dirección IP local y se compara con los adaptadores. `route_adapter` queda `null` si no hay correspondencia única, por ejemplo con IPv6, VPN o varias interfaces. Falta registrar puerta de enlace y cambios de ruta con mayor detalle.
-- No se hacen pruebas ICMP ni se infiere pérdida de paquetes IP de fallos TCP/HTTPS. El porcentaje de fallos siempre pertenece a un protocolo y destino concretos.
+- Los sockets registran su dirección IP local IPv4 o IPv6 y se compara con los adaptadores. `route_adapter` queda `null` si no hay correspondencia única, por ejemplo con algunas VPN o varias interfaces. Al cambiar la interfaz identificada, el motor reinicia su ventana de clasificación.
+- Windows informa la puerta de enlace IPv4 del adaptador mediante una consulta de solo lectura, almacenada durante cinco minutos. Si se identifica, la aplicación envía un eco ICMP por ronda. Registra únicamente si recibió respuesta: no inventa un tiempo RTT. La ausencia de eco puede deberse a filtrado y por sí sola no demuestra una falla local.
+- No se infiere pérdida de paquetes IP de fallos TCP/HTTPS. El porcentaje de fallos siempre pertenece a un protocolo y destino concretos.
 - Si DNS falla, no se crean resultados ficticios de TCP o HTTPS. Tampoco se infiere conexión estable cuando faltan muestras.
 - La clasificación exige tres rondas, dos destinos y dos clasificaciones candidatas consecutivas para cambiar de clima. Los incidentes quedan abiertos durante resultados desconocidos y cierran tras dos rondas soleadas. La causa permanece sin atribuir.
 - El motor de clima aún usa umbrales iniciales conservadores. Falta validar su comportamiento con conjuntos de datos reales de varios tipos de conexión antes de considerarlo diagnóstico definitivo.
-- El panel muestra las últimas rondas e incidentes, pero aún faltan filtros de tiempo, gráficas históricas completas, puerta de enlace, Wi-Fi detallado, idioma inglés en la interfaz y una evaluación de confianza específica para causas. No se atribuye ninguna causa a un proveedor.
+- El panel muestra las últimas rondas, la puerta de enlace y los incidentes, pero aún faltan filtros de tiempo, gráficas históricas completas, Wi-Fi detallado, idioma inglés en la interfaz y una evaluación de confianza específica para causas. No se atribuye ninguna causa a un proveedor.
 - Los ocho fondos predeterminados son ilustraciones propias creadas para este proyecto. Qt dibuja encima los efectos de lluvia, viento, niebla y relámpagos, que pueden apagarse sin perder la imagen. Cada clima acepta una imagen PNG, JPG o WebP de hasta 10 MB y 4096 px, copiada al área de datos sin modificar el original.
 - Existe un ZIP de vista previa para Windows generado con PyInstaller. Abre `NetworkWeather.exe --demo` para revisar las escenas o `NetworkWeather.exe` para sondear la red. El paquete aún necesita validación en un Windows limpio antes de considerarse instalador público.
 

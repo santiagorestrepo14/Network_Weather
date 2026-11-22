@@ -29,7 +29,8 @@ def summarize(results: list[ProbeResult], destination: str, kind: ProbeKind) -> 
         (r for r in results if r.destination == destination and r.kind == kind),
         key=lambda r: r.at,
     )
-    successful = [r.duration_ms for r in selected if r.ok and r.duration_ms is not None]
+    successful = [r for r in selected if r.ok]
+    durations = [r.duration_ms for r in successful if r.duration_ms is not None]
     pairs = [
         abs(previous.duration_ms - current.duration_ms)
         for previous, current in pairwise(selected)
@@ -41,7 +42,7 @@ def summarize(results: list[ProbeResult], destination: str, kind: ProbeKind) -> 
         kind=kind,
         attempted=len(selected),
         successful=len(successful),
-        median_ms=median(successful) if successful else None,
+        median_ms=median(durations) if durations else None,
         jitter_ms=sum(pairs) / len(pairs) if pairs else None,
         failure_percent=100 * (len(selected) - len(successful)) / len(selected) if selected else None,
     )

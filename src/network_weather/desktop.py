@@ -725,7 +725,11 @@ class ExpandedPanel(QMainWindow):
             f"Confianza: {result.confidence:.0%}   Severidad: {result.severity:.0%}"
         )
         self.evidence_label.setText("\n".join(e.detail for e in result.evidence))
-        lines = [f"Adaptador de ruta: {round_.route_adapter or 'No identificado'}", ""]
+        lines = [
+            f"Adaptador de ruta: {round_.route_adapter or 'No identificado'}",
+            f"Puerta de enlace IPv4: {round_.gateway_address or 'No identificada'}",
+            "",
+        ]
         for probe in round_.probes:
             duration = f"{probe.duration_ms:.1f} ms" if probe.duration_ms is not None else "sin latencia válida"
             lines.append(f"{probe.destination} · {probe.kind.value.upper()} · {probe.status.value} · {duration}")
