@@ -1,6 +1,9 @@
+import json
+import sqlite3
 from datetime import UTC, datetime, timedelta
 
 from network_weather.history import HistoryStore
+from network_weather.history_chart import weather_segments
 from network_weather.models import (
     AdapterSnapshot,
     MeasurementRound,
@@ -68,3 +71,70 @@ def test_route_change_ends_incident_without_claiming_recovery(tmp_path):
         incident = store.incidents()[0]
         assert incident["ended_at"] is not None
         assert incident["evidence"][-1]["code"] == "route_changed"
+
+
+def test_range_keeps_weather_categorical_and_filters_latency_destination(tmp_path):
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    with HistoryStore(tmp_path / "series.db") as store:
+        for minute, weather, first_ms in (
+            (0, Weather.SUNNY, 10.0),
+            (1, Weather.RAINY, 20.0),
+            (15, Weather.UNKNOWN, 30.0),
+        ):
+            at = start + timedelta(minutes=minute)
+            probes = (
+                ProbeResult(at, "one.example", ProbeKind.TCP, ProbeStatus.SUCCESS, first_ms),
+                ProbeResult(at, "two.example", ProbeKind.TCP, ProbeStatus.SUCCESS, 1000.0),
+            )
+            round_ = MeasurementRound(at, at, probes)
+            classification = Classification(weather, (), 0.8, 0.0, (), 3)
+            store.save(round_, classification)
+        series = store.history_range(start, start + timedelta(hours=1),
+                                     destination="one.example", max_bins=60)
+        assert [point.weather for point in series.weather] == [
+            Weather.SUNNY, Weather.RAINY, Weather.UNKNOWN,
+        ]
+        assert [bucket.mean_ms for bucket in series.latency] == [10.0, 20.0, 30.0]
+        assert series.destinations == ("one.example", "two.example")
+        assert series.gap_threshold_seconds < 14 * 60
+        segments = weather_segments(series)
+        assert [state for _, _, state in segments] == [
+            Weather.SUNNY, Weather.RAINY, Weather.UNKNOWN,
+        ]
+        assert segments[0][1] == start + timedelta(minutes=1)
+        assert segments[1][1] < start + timedelta(minutes=15)
+
+
+def test_preexisting_rounds_backfill_samples_once(tmp_path):
+    path = tmp_path / "legacy.db"
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    round_ = MeasurementRound(
+        at, at,
+        (ProbeResult(at, "example.com", ProbeKind.TCP, ProbeStatus.SUCCESS, 42.0),),
+    )
+    connection = sqlite3.connect(path)
+    connection.execute("""CREATE TABLE rounds (
+        id INTEGER PRIMARY KEY, started_at TEXT, finished_at TEXT, data TEXT,
+        weather TEXT, confidence REAL, severity REAL, evidence TEXT)""")
+    connection.execute("INSERT INTO rounds VALUES (1, ?, ?, ?, 'sunny', 0.8, 0, '[]')",
+                       (at.isoformat(), at.isoformat(), json.dumps(round_.to_dict())))
+    connection.commit()
+    connection.close()
+    for _ in range(2):
+        with HistoryStore(path) as store:
+            series = store.history_range(at - timedelta(minutes=1), at + timedelta(minutes=1))
+            assert len(series.latency) == 1
+            count = store.connection.execute("SELECT COUNT(*) FROM probe_samples").fetchone()[0]
+            assert count == 1
+
+
+def test_retention_removes_indexed_samples_with_old_rounds(tmp_path):
+    at = datetime(2020, 1, 1, tzinfo=UTC)
+    with HistoryStore(tmp_path / "retention.db") as store:
+        round_ = MeasurementRound(
+            at, at,
+            (ProbeResult(at, "example.com", ProbeKind.TCP, ProbeStatus.SUCCESS, 5),),
+        )
+        store.save(round_, Classification(Weather.SUNNY, (), 0.8, 0, (), 3))
+        assert store.prune(30) == 1
+        assert store.connection.execute("SELECT COUNT(*) FROM probe_samples").fetchone()[0] == 0

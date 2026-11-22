@@ -20,6 +20,8 @@ By default, one round checks `example.com` and `www.wikipedia.org` with OS DNS r
 
 The desktop starts monitoring in a worker thread. Close or minimize the widget to keep monitoring in the system tray; choose **Exit** from the tray menu to stop. `--demo` cycles all eight visual states without network requests or synthetic history. Settings, widget position and imported weather images persist under `%LOCALAPPDATA%\NetworkWeather`.
 
+The history panel offers one hour, 24-hour, 7-day, 30-day and custom ranges, with a destination filter for TCP latency. Weather is shown as observed categorical states; the separate latency chart contains only valid TCP samples averaged within time bins. Unobserved periods remain visible. SQLite history queries run in a worker thread.
+
 A Windows preview ZIP has been built with PyInstaller, including the eight scene images. It still needs validation on a clean Windows machine before a public release.
 
 Current development preview (visual demo, no measured values): ![Storm widget preview](docs/widget-demo-v2.png)

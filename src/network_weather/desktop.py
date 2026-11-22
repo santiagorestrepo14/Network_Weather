@@ -6,9 +6,21 @@ import argparse
 import math
 import sys
 import threading
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QRect, QRectF, QSettings, QSize, Qt, QThread, QTimer, Signal
+from PySide6.QtCore import (
+    QObject,
+    QPoint,
+    QRect,
+    QRectF,
+    QSettings,
+    QSize,
+    Qt,
+    QThread,
+    QTimer,
+    Signal,
+)
 from PySide6.QtGui import (
     QColor,
     QIcon,
@@ -26,6 +38,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
+    QDateTimeEdit,
     QFileDialog,
     QFrame,
     QGridLayout,
@@ -47,6 +60,7 @@ from PySide6.QtWidgets import (
 
 from network_weather.config import ProbeConfig, default_data_dir
 from network_weather.history import HistoryStore
+from network_weather.history_chart import PALETTE, HistoryChart, weather_segments
 from network_weather.metrics import summarize
 from network_weather.models import MeasurementRound, ProbeKind
 from network_weather.monitor import Monitor
@@ -338,7 +352,7 @@ class Sparkline(QWidget):
 
 
 class MonitorThread(QThread):
-    measured = Signal(object, object)
+    measured = Signal(object, object, object)
     failed = Signal(str)
 
     def __init__(self, config: ProbeConfig) -> None:
@@ -352,7 +366,7 @@ class MonitorThread(QThread):
                 while not self.stop_event.is_set():
                     try:
                         round_, result = monitor.measure()
-                        self.measured.emit(round_, result)
+                        self.measured.emit(round_, result, monitor.history.incidents(100))
                     except Exception as exc:  # noqa: BLE001 - report probe failures without killing UI
                         self.failed.emit(f"No se pudo medir: {exc}")
                     self.stop_event.wait(self.config.interval_seconds)
@@ -361,6 +375,23 @@ class MonitorThread(QThread):
 
     def stop(self) -> None:
         self.stop_event.set()
+
+
+class HistoryQueryThread(QThread):
+    loaded = Signal(object, object)
+    failed = Signal(str)
+
+    def __init__(self, start: datetime, end: datetime, destination: str | None) -> None:
+        super().__init__()
+        self.start, self.end, self.destination = start, end, destination
+
+    def run(self) -> None:
+        try:
+            with HistoryStore(default_data_dir() / "history.db") as store:
+                self.loaded.emit(store.history_range(self.start, self.end, self.destination),
+                                 store.incidents(100))
+        except (OSError, ValueError) as exc:
+            self.failed.emit(str(exc))
 
 
 class WeatherWidget(QWidget):
@@ -503,6 +534,8 @@ class WeatherWidget(QWidget):
 
 
 class ExpandedPanel(QMainWindow):
+    history_requested = Signal()
+
     def __init__(self, settings: QSettings, widget: WeatherWidget) -> None:
         super().__init__()
         self.settings = settings
@@ -522,6 +555,7 @@ class ExpandedPanel(QMainWindow):
         self.stack = QStackedWidget()
         horizontal.addWidget(self.stack)
         self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
+        self.nav.currentRowChanged.connect(self._navigation_changed)
         for page in (self._summary_page(), self._diagnostic_page(), self._history_page(),
                      self._incident_page(), self._settings_page()):
             self.stack.addWidget(page)
@@ -561,9 +595,98 @@ class ExpandedPanel(QMainWindow):
 
     def _history_page(self) -> QWidget:
         page, layout = self._page("Historial observado")
+        filters = QHBoxLayout()
+        self.history_range = QComboBox()
+        self.history_range.addItems(["Última hora", "24 horas", "7 días", "30 días", "Personalizado"])
+        self.history_range.currentIndexChanged.connect(self._range_changed)
+        self.history_start = QDateTimeEdit()
+        self.history_end = QDateTimeEdit()
+        for field in (self.history_start, self.history_end):
+            field.setCalendarPopup(True)
+            field.setDisplayFormat("dd/MM/yyyy HH:mm")
+            field.hide()
+        self.history_destination = QComboBox()
+        self.history_destination.addItem("Todos los destinos", None)
+        self.history_destination.currentIndexChanged.connect(self.history_requested.emit)
+        refresh = QPushButton("Actualizar")
+        refresh.clicked.connect(self.history_requested.emit)
+        filters.addWidget(self.history_range)
+        filters.addWidget(self.history_start)
+        filters.addWidget(self.history_end)
+        filters.addWidget(self.history_destination)
+        filters.addWidget(refresh)
+        layout.addLayout(filters)
+        self.history_status = QLabel("Abre el historial para consultar los datos guardados.")
+        layout.addWidget(self.history_status)
+        self.history_chart = HistoryChart()
+        layout.addWidget(self.history_chart)
+        legend = QHBoxLayout()
+        for weather in Weather:
+            label = QLabel(f"● {NAMES[weather]}")
+            label.setStyleSheet(f"color:{PALETTE[weather]}")
+            legend.addWidget(label)
+        legend.addStretch()
+        layout.addLayout(legend)
         self.history_list = QListWidget()
         layout.addWidget(self.history_list)
         return page
+
+    def _navigation_changed(self, index: int) -> None:
+        if index in (2, 3):
+            self.history_requested.emit()
+
+    def _range_changed(self, _index: int) -> None:
+        custom = self.history_range.currentIndex() == 4
+        self.history_start.setVisible(custom)
+        self.history_end.setVisible(custom)
+        if custom:
+            now = datetime.now().astimezone()
+            self.history_start.setDateTime(now - timedelta(days=1))
+            self.history_end.setDateTime(now)
+        self.history_requested.emit()
+
+    def selected_history_range(self) -> tuple[datetime, datetime, str | None]:
+        now = datetime.now(UTC)
+        durations = [timedelta(hours=1), timedelta(days=1), timedelta(days=7),
+                     timedelta(days=30)]
+        index = self.history_range.currentIndex()
+        if index == 4:
+            start = datetime.fromtimestamp(self.history_start.dateTime().toSecsSinceEpoch(), UTC)
+            end = datetime.fromtimestamp(self.history_end.dateTime().toSecsSinceEpoch(), UTC)
+        else:
+            start, end = now - durations[index], now
+        return start, end, self.history_destination.currentData()
+
+    def show_history(self, series: object, incidents: list[dict]) -> None:
+        self.history_chart.set_series(series)
+        segments = weather_segments(series)
+        observed_seconds = sum((end - start).total_seconds() for start, end, _ in segments)
+        has_gaps = observed_seconds < (series.end - series.start).total_seconds() - 1
+        self.history_status.setText(
+            f"{len(series.weather)} rondas · {sum(b.sample_count for b in series.latency)} "
+            f"muestras TCP válidas" + (" · gris: sin observación" if has_gaps else "")
+            + (" · límite de rondas alcanzado" if series.truncated else "")
+        )
+        selected = self.history_destination.currentData()
+        destinations = set(series.destinations)
+        self.history_destination.blockSignals(True)
+        self.history_destination.clear()
+        self.history_destination.addItem("Todos los destinos", None)
+        for destination in sorted(destinations | ({selected} if selected else set())):
+            self.history_destination.addItem(destination, destination)
+        index = self.history_destination.findData(selected)
+        self.history_destination.setCurrentIndex(max(0, index))
+        self.history_destination.blockSignals(False)
+        self.history_list.clear()
+        for point in reversed(series.weather[-200:]):
+            self.history_list.addItem(
+                f"{point.at.astimezone():%d/%m %H:%M:%S} · {NAMES[point.weather]}")
+        self.incident_list.clear()
+        for incident in incidents:
+            state = "Activo" if incident["ended_at"] is None else "Finalizado"
+            self.incident_list.addItem(
+                f"{incident['started_at']} · {NAMES[Weather(incident['weather'])]} · "
+                f"{state} · severidad {incident['severity']:.0%}")
 
     def _incident_page(self) -> QWidget:
         page, layout = self._page("Incidentes")
@@ -736,13 +859,11 @@ class ExpandedPanel(QMainWindow):
             if probe.detail:
                 lines.append(f"  {probe.detail}")
         self.diagnostic_label.setText("\n".join(lines))
-        self.history_list.insertItem(0, f"{round_.started_at.astimezone():%d/%m %H:%M:%S}  ·  {NAMES[result.weather]}")
-        while self.history_list.count() > 200:
-            self.history_list.takeItem(self.history_list.count()-1)
 
 
-class DesktopController:
+class DesktopController(QObject):
     def __init__(self, app: QApplication, demo: bool = False) -> None:
+        super().__init__(app)
         self.app = app
         self.demo = demo
         settings_path = default_data_dir() / "settings.ini"
@@ -752,18 +873,9 @@ class DesktopController:
         self.panel = ExpandedPanel(self.settings, self.widget)
         self.widget.open_panel.connect(self.show_panel)
         self.widget.hide_requested.connect(self.widget.hide)
-        if not demo:
-            try:
-                with HistoryStore(default_data_dir() / "history.db") as history:
-                    for at, weather in history.recent_weather(200):
-                        self.panel.history_list.addItem(f"{at} · {NAMES[weather]}")
-                    for incident in history.incidents(100):
-                        state = "Activo" if incident["ended_at"] is None else "Finalizado"
-                        self.panel.incident_list.addItem(
-                            f"{incident['started_at']} · {NAMES[Weather(incident['weather'])]} · {state}"
-                        )
-            except (OSError, ValueError):
-                pass
+        self.panel.history_requested.connect(self._request_history)
+        self.history_worker: HistoryQueryThread | None = None
+        self.history_pending = False
         self.worker: MonitorThread | None = None
         self.recent_tcp = []
         self.demo_index = 0
@@ -815,7 +927,8 @@ class DesktopController:
         self.panel.raise_()
         self.panel.activateWindow()
 
-    def _measured(self, round_: MeasurementRound, result: Classification) -> None:
+    def _measured(self, round_: MeasurementRound, result: Classification,
+                  incidents: list[dict]) -> None:
         self.widget.update_measurement(round_, result)
         self.panel.update_measurement(round_, result)
         self.tray.setToolTip(f"Network Weather · {NAMES[result.weather]}")
@@ -825,17 +938,31 @@ class DesktopController:
             destination = self.recent_tcp[-1].destination
             summary = summarize(self.recent_tcp, destination, ProbeKind.TCP)
             self.widget.set_jitter(summary.jitter_ms)
-        try:
-            with HistoryStore(default_data_dir() / "history.db") as store:
-                self.panel.incident_list.clear()
-                for incident in store.incidents(100):
-                    state = "Activo" if incident["ended_at"] is None else "Finalizado"
-                    self.panel.incident_list.addItem(
-                        f"{incident['started_at']} · {NAMES[Weather(incident['weather'])]} · "
-                        f"{state} · severidad {incident['severity']:.0%}"
-                    )
-        except (OSError, ValueError):
-            pass
+        if self.panel.nav.currentRow() in (2, 3):
+            self._request_history()
+
+    def _request_history(self) -> None:
+        if self.demo:
+            return
+        if self.history_worker is not None:
+            self.history_pending = True
+            return
+        start, end, destination = self.panel.selected_history_range()
+        if start >= end:
+            self.panel.history_status.setText("El inicio debe ser anterior al fin.")
+            return
+        self.panel.history_status.setText("Consultando historial…")
+        self.history_worker = HistoryQueryThread(start, end, destination)
+        self.history_worker.loaded.connect(self.panel.show_history)
+        self.history_worker.failed.connect(self.panel.history_status.setText)
+        self.history_worker.finished.connect(self._history_finished)
+        self.history_worker.start()
+
+    def _history_finished(self) -> None:
+        self.history_worker = None
+        if self.history_pending:
+            self.history_pending = False
+            self._request_history()
 
     def _failed(self, message: str) -> None:
         self.widget.monitoring.setText(message)
@@ -854,6 +981,9 @@ class DesktopController:
             card.value.setText("demo")
 
     def exit(self) -> None:
+        if self.history_worker and not self.history_worker.wait(30000):
+            QMessageBox.warning(self.widget, "Cierre pendiente", "La consulta del historial aún no termina.")
+            return
         if self.worker:
             self.worker.stop()
             if not self.worker.wait(30000):

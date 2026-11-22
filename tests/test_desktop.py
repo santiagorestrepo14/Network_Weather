@@ -1,4 +1,5 @@
 import os
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from PySide6.QtGui import QColor, QImage, QImageReader
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 from network_weather.desktop import ExpandedPanel, WeatherScene, WeatherWidget
+from network_weather.history import HistorySeries, LatencyBin, WeatherPoint
 from network_weather.weather import Weather
 
 
@@ -56,3 +58,31 @@ def test_each_weather_has_a_readable_default_image(tmp_path):
         assert not scene.grab().isNull()
         assert not scene._cached_image.isNull()
     scene.hide()
+
+
+def test_history_panel_filters_and_renders_observed_series(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    widget = WeatherWidget(settings)
+    panel = ExpandedPanel(settings, widget)
+    panel.nav.setCurrentRow(2)
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    series = HistorySeries(
+        start, start + timedelta(hours=1),
+        (WeatherPoint(start, Weather.SUNNY),),
+        (LatencyBin(start, start + timedelta(minutes=1), 42.0, 2),),
+        ("one.example",), 120.0, False,
+    )
+    panel.show_history(series, [])
+    assert panel.history_list.count() == 1
+    assert panel.history_destination.count() == 2
+    assert "2 muestras" in panel.history_status.text()
+    assert panel.history_chart.series is series
+    panel.history_range.setCurrentIndex(4)
+    panel.history_start.setDateTime(start)
+    panel.history_end.setDateTime(start + timedelta(hours=1))
+    selected_start, selected_end, _ = panel.selected_history_range()
+    assert selected_end - selected_start == timedelta(hours=1)
+    panel.close()
+    widget.hide()
+    app.processEvents()
