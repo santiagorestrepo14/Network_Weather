@@ -9,5 +9,6 @@
 - Added IPv4/IPv6 route-adapter matching, cached Windows gateway discovery and honest ICMP echo evidence.
 - Added a reproducible PyInstaller spec that avoids bundling an incompatible third-party ICU DLL.
 - Added indexed historical probe samples, legacy backfill, time and destination filters, categorical weather timeline and observed TCP latency chart.
+- Added incident details with duration, peak severity and measured evidence, without unsupported cause attribution.
 
 This is a development snapshot. No release or executable has been published.

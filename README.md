@@ -22,6 +22,8 @@ The desktop starts monitoring in a worker thread. Close or minimize the widget t
 
 The history panel offers one hour, 24-hour, 7-day, 30-day and custom ranges, with a destination filter for TCP latency. Weather is shown as observed categorical states; the separate latency chart contains only valid TCP samples averaged within time bins. Unobserved periods remain visible. SQLite history queries run in a worker thread.
 
+Selecting an incident displays its start, end, duration, peak severity and latest persisted evidence. The UI leaves the cause unidentified when the available probes cannot establish it.
+
 A Windows preview ZIP has been built with PyInstaller, including the eight scene images. It still needs validation on a clean Windows machine before a public release.
 
 Current development preview (visual demo, no measured values): ![Storm widget preview](docs/widget-demo-v2.png)

@@ -86,3 +86,26 @@ def test_history_panel_filters_and_renders_observed_series(tmp_path):
     panel.close()
     widget.hide()
     app.processEvents()
+
+
+def test_incident_selection_shows_persisted_evidence(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    widget = WeatherWidget(settings)
+    panel = ExpandedPanel(settings, widget)
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    empty = HistorySeries(now, now + timedelta(hours=1), (), (), (), 120.0, False)
+    incident = {
+        "id": 1, "started_at": now.isoformat(),
+        "ended_at": (now + timedelta(minutes=2)).isoformat(),
+        "weather": Weather.RAINY.value, "severity": 0.5,
+        "evidence": [{"code": "response_failures", "detail": "Failures",
+                      "observed": 0.4, "threshold": 0.2}],
+    }
+    panel.show_history(empty, [incident])
+    assert panel.incident_list.currentRow() == 0
+    assert "40% de pruebas" in panel.incident_detail.toPlainText()
+    assert "2 min" in panel.incident_detail.toPlainText()
+    panel.close()
+    widget.hide()
+    app.processEvents()

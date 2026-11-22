@@ -2,9 +2,9 @@
 
 Aplicación de escritorio para Windows que representa el estado de Internet como clima. **Estado actual: versión de desarrollo.** Contiene sondas, reglas meteorológicas, historial SQLite, CLI, widget, bandeja, panel expandido y ocho escenas procedurales. Todavía faltan funciones y pulido visual para la primera publicación. Las capturas de referencia son maquetas: sus cifras no son datos de esta aplicación.
 
-## Arquitectura prevista
+## Arquitectura
 
-`probes` realiza pruebas DNS, TCP y HTTPS; `collector` reúne una ronda; `metrics` calcula estadísticas de muestras comparables. Las siguientes etapas añadirán línea base, reglas meteorológicas y evidencias, almacenamiento SQLite y finalmente interfaz PySide6. La lógica de red permanecerá independiente de la ventana.
+`probes` realiza pruebas DNS, TCP y HTTPS; `collector` reúne una ronda; `metrics` calcula estadísticas de muestras comparables. `weather` clasifica con reglas y evidencias, `history` guarda rondas e incidentes en SQLite y `desktop` presenta los datos con PySide6. Las sondas y las consultas del historial se ejecutan en hilos separados del gráfico.
 
 ## Instalación y uso (PowerShell, Python 3.12+)
 
@@ -41,7 +41,7 @@ Las duraciones de sondas fallidas son `null`. La latencia TCP excluye la resoluc
 - Si DNS falla, no se crean resultados ficticios de TCP o HTTPS. Tampoco se infiere conexión estable cuando faltan muestras.
 - La clasificación exige tres rondas, dos destinos y dos clasificaciones candidatas consecutivas para cambiar de clima. Los incidentes quedan abiertos durante resultados desconocidos y cierran tras dos rondas soleadas. La causa permanece sin atribuir.
 - El motor de clima aún usa umbrales iniciales conservadores. Falta validar su comportamiento con conjuntos de datos reales de varios tipos de conexión antes de considerarlo diagnóstico definitivo.
-- El panel muestra historial por rango, latencia TCP por destino, puerta de enlace e incidentes. Todavía faltan Wi-Fi detallado, idioma inglés en la interfaz y una evaluación de confianza específica para causas. No se atribuye ninguna causa a un proveedor.
+- El panel muestra historial por rango, latencia TCP por destino, puerta de enlace e incidentes con inicio, fin, duración, severidad y evidencias. Todavía faltan Wi-Fi detallado, idioma inglés en la interfaz y una evaluación de confianza específica para causas. No se atribuye ninguna causa a un proveedor.
 - Los ocho fondos predeterminados son ilustraciones propias creadas para este proyecto. Qt dibuja encima los efectos de lluvia, viento, niebla y relámpagos, que pueden apagarse sin perder la imagen. Cada clima acepta una imagen PNG, JPG o WebP de hasta 10 MB y 4096 px, copiada al área de datos sin modificar el original.
 - Existe un ZIP de vista previa para Windows generado con PyInstaller. Abre `NetworkWeather.exe --demo` para revisar las escenas o `NetworkWeather.exe` para sondear la red. El paquete aún necesita validación en un Windows limpio antes de considerarse instalador público.
 

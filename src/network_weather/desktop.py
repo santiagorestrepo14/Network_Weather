@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import sqlite3
 import sys
 import threading
 from datetime import UTC, datetime, timedelta
@@ -49,6 +50,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenu,
     QMessageBox,
+    QPlainTextEdit,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -61,6 +63,7 @@ from PySide6.QtWidgets import (
 from network_weather.config import ProbeConfig, default_data_dir
 from network_weather.history import HistoryStore
 from network_weather.history_chart import PALETTE, HistoryChart, weather_segments
+from network_weather.incident_view import format_incident
 from network_weather.metrics import summarize
 from network_weather.models import MeasurementRound, ProbeKind
 from network_weather.monitor import Monitor
@@ -390,7 +393,7 @@ class HistoryQueryThread(QThread):
             with HistoryStore(default_data_dir() / "history.db") as store:
                 self.loaded.emit(store.history_range(self.start, self.end, self.destination),
                                  store.incidents(100))
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, sqlite3.Error) as exc:
             self.failed.emit(str(exc))
 
 
@@ -681,18 +684,45 @@ class ExpandedPanel(QMainWindow):
         for point in reversed(series.weather[-200:]):
             self.history_list.addItem(
                 f"{point.at.astimezone():%d/%m %H:%M:%S} · {NAMES[point.weather]}")
+        selected_id = None
+        row = self.incident_list.currentRow()
+        if 0 <= row < len(self._incidents):
+            selected_id = self._incidents[row]["id"]
+        self._incidents = incidents
         self.incident_list.clear()
         for incident in incidents:
             state = "Activo" if incident["ended_at"] is None else "Finalizado"
+            started = datetime.fromisoformat(incident["started_at"]).astimezone()
             self.incident_list.addItem(
-                f"{incident['started_at']} · {NAMES[Weather(incident['weather'])]} · "
+                f"{started:%d/%m/%Y %H:%M} · {NAMES[Weather(incident['weather'])]} · "
                 f"{state} · severidad {incident['severity']:.0%}")
+        selected_row = next((index for index, item in enumerate(incidents)
+                             if item["id"] == selected_id), 0)
+        if incidents:
+            self.incident_list.setCurrentRow(selected_row)
+        else:
+            self.incident_detail.setPlainText("No hay incidentes registrados.")
 
     def _incident_page(self) -> QWidget:
         page, layout = self._page("Incidentes")
+        self._incidents: list[dict] = []
         self.incident_list = QListWidget()
+        self.incident_list.currentRowChanged.connect(self._show_incident_detail)
         layout.addWidget(self.incident_list)
+        self.incident_detail = QPlainTextEdit()
+        self.incident_detail.setReadOnly(True)
+        self.incident_detail.setMinimumHeight(210)
+        self.incident_detail.setStyleSheet(
+            "background:#1b2348;border:1px solid #5b598e;border-radius:10px;"
+            "padding:10px;color:#f4edff"
+        )
+        self.incident_detail.setPlainText("Abre Incidentes para consultar los episodios guardados.")
+        layout.addWidget(self.incident_detail)
         return page
+
+    def _show_incident_detail(self, row: int) -> None:
+        if 0 <= row < len(self._incidents):
+            self.incident_detail.setPlainText(format_incident(self._incidents[row]))
 
     def _settings_page(self) -> QWidget:
         page, layout = self._page("Configuración")
