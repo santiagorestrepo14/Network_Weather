@@ -54,6 +54,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSpinBox,
+    QStackedLayout,
     QStackedWidget,
     QSystemTrayIcon,
     QVBoxLayout,
@@ -292,6 +293,12 @@ class WeatherScene(QWidget):
 
 STYLE = """
 QWidget { color: #eee9ff; font-family: 'Segoe UI'; font-size: 12px; }
+QWidget#panelRoot { background: #111936; }
+QFrame#panelHeader { background: #1b254d; border: 1px solid #5364a5; border-radius: 15px; }
+QFrame#overviewSection { background: #22284f; border: 1px solid #625c99; border-radius: 15px; }
+QFrame#overviewHero { background: #171e41; border: 1px solid #745ba9; border-radius: 16px; }
+QFrame#overviewCard { background: #25294e; border: 1px solid #655a96; border-radius: 13px; }
+QListWidget#panelNav { background: #19234b; border: 1px solid #5364a5; border-radius: 14px; padding: 8px; }
 QFrame#shell { background: #1b1b3b; border: 1px solid #7665bf; border-radius: 22px; }
 QFrame#card { background: #292849; border: 1px solid #554e82; border-radius: 13px; }
 QPushButton { background: #35345e; border: 1px solid #665aa0; border-radius: 9px; padding: 6px 9px; }
@@ -299,8 +306,10 @@ QPushButton:hover { background: #514483; }
 QListWidget { background: #1d2147; border: 1px solid #5b5792; border-radius: 12px; padding: 8px; }
 QListWidget::item { padding: 10px; border-radius: 8px; }
 QListWidget::item:selected { background: #6c47a6; }
+QListWidget::item:focus { outline: none; }
 QComboBox { background: #33335f; border: 1px solid #665aa0; padding: 5px; }
 QScrollArea { background: transparent; border: none; }
+QScrollArea QWidget#qt_scrollarea_viewport { background: transparent; }
 """
 
 
@@ -611,16 +620,38 @@ class ExpandedPanel(QMainWindow):
         self.widget_ref = widget
         self.setWindowTitle("Network Weather · " + self.t("Resumen"))
         self.setWindowIcon(icon())
-        self.resize(1020, 650)
+        available = QApplication.primaryScreen().availableGeometry()
+        self.resize(min(1060, max(1, available.width() - 40)),
+                    min(780, max(1, available.height() - 40)))
         root = QWidget()
+        root.setObjectName("panelRoot")
         root.setStyleSheet(STYLE)
         self.setCentralWidget(root)
-        horizontal = QHBoxLayout(root)
-        horizontal.setContentsMargins(15, 15, 15, 15)
+        vertical = QVBoxLayout(root)
+        vertical.setContentsMargins(14, 12, 14, 14)
+        vertical.setSpacing(12)
+        header = QFrame()
+        header.setObjectName("panelHeader")
+        header_row = QHBoxLayout(header)
+        brand_icon = QLabel()
+        brand_icon.setPixmap(icon().pixmap(38, 38))
+        brand = QLabel("Network Weather")
+        brand.setStyleSheet("font-size:19px;font-weight:700;color:#f5efff")
+        self.panel_status = QLabel(self.t("Esperando las primeras mediciones…"))
+        self.panel_status.setStyleSheet("color:#91eec7;font-size:11px")
+        header_row.addWidget(brand_icon)
+        header_row.addWidget(brand)
+        header_row.addStretch()
+        header_row.addWidget(self.panel_status)
+        vertical.addWidget(header)
+        horizontal = QHBoxLayout()
+        horizontal.setSpacing(12)
+        vertical.addLayout(horizontal, 1)
         self.nav = QListWidget()
+        self.nav.setObjectName("panelNav")
         self.nav.addItems([self.t(item) for item in
                            ("Resumen", "Diagnóstico", "Historial", "Incidentes", "Configuración")])
-        self.nav.setFixedWidth(160)
+        self.nav.setFixedWidth(175)
         horizontal.addWidget(self.nav)
         self.stack = QStackedWidget()
         horizontal.addWidget(self.stack)
@@ -643,18 +674,83 @@ class ExpandedPanel(QMainWindow):
         return page, layout
 
     def _summary_page(self) -> QWidget:
-        page, layout = self._page("Resumen de la conexión")
-        self.summary_label = QLabel(self.t("Esperando las primeras mediciones…"))
-        self.summary_label.setWordWrap(True)
-        self.summary_label.setStyleSheet("font-size:19px")
-        layout.addWidget(self.summary_label)
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setSpacing(10)
+        hero = QFrame()
+        hero.setObjectName("overviewHero")
+        hero.setMinimumHeight(220)
+        hero_stack = QStackedLayout(hero)
+        hero_stack.setStackingMode(QStackedLayout.StackingMode.StackAll)
+        hero_stack.setContentsMargins(1, 1, 1, 1)
+        self.overview_scene = WeatherScene(self.settings)
+        hero_stack.addWidget(self.overview_scene)
+        overlay = QWidget()
+        overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        overlay_layout = QVBoxLayout(overlay)
+        overlay_layout.setContentsMargins(22, 14, 22, 18)
+        overlay_layout.addStretch()
+        self.summary_label = QLabel(weather_name(Weather.UNKNOWN, self.language))
+        self.summary_label.setStyleSheet(
+            "font-size:34px;font-weight:750;color:#ffffff;background:transparent")
+        self.summary_description = QLabel(weather_description(Weather.UNKNOWN, self.language))
+        self.summary_description.setStyleSheet(
+            "font-size:15px;color:#f2e9ff;background:transparent")
         self.confidence_label = QLabel(self.t("Confianza: —   Severidad: —"))
-        layout.addWidget(self.confidence_label)
-        self.evidence_label = QLabel(self.t("Las evidencias aparecerán tras tres rondas."))
-        self.evidence_label.setWordWrap(True)
-        layout.addWidget(self.evidence_label)
+        self.confidence_label.setStyleSheet(
+            "color:#c8f9e5;font-size:11px;background:transparent")
+        overlay_layout.addWidget(self.summary_label)
+        overlay_layout.addWidget(self.summary_description)
+        overlay_layout.addWidget(self.confidence_label)
+        hero_stack.addWidget(overlay)
+        hero_stack.setCurrentWidget(overlay)
+        layout.addWidget(hero)
+
+        metrics = QHBoxLayout()
+        metrics.setSpacing(8)
+        self.overview_cards = {
+            "latency": MetricCard(self.t("Latencia")),
+            "variation": MetricCard(self.t("Variación")),
+            "failures": MetricCard(self.t("Fallos TCP")),
+            "dns": MetricCard("DNS"),
+            "gateway": MetricCard(self.t("Puerta de enlace")),
+            "external": MetricCard(self.t("Conectividad externa")),
+        }
+        for card in self.overview_cards.values():
+            card.setObjectName("overviewCard")
+            card.value.setStyleSheet("color:#e6d1ff;font-size:17px;font-weight:700")
+            metrics.addWidget(card, 1)
+        layout.addLayout(metrics)
+
+        chart_section = QFrame()
+        chart_section.setObjectName("overviewSection")
+        chart_layout = QVBoxLayout(chart_section)
+        chart_layout.addWidget(QLabel(self.t("Historial de red · última hora")))
+        self.overview_chart = HistoryChart(language=self.language)
+        chart_layout.addWidget(self.overview_chart)
+        layout.addWidget(chart_section)
+
+        detail_row = QHBoxLayout()
+        for title, name in (("Incidente activo", "incident_summary_label"),
+                            ("Explicación técnica", "evidence_label")):
+            section = QFrame()
+            section.setObjectName("overviewSection")
+            section_layout = QVBoxLayout(section)
+            section_layout.addWidget(QLabel(self.t(title)))
+            detail = QLabel(self.t("Sin datos observados todavía.") if name ==
+                            "evidence_label" else self.t("Sin incidentes activos."))
+            detail.setWordWrap(True)
+            detail.setMinimumHeight(45)
+            section_layout.addWidget(detail)
+            setattr(self, name, detail)
+            detail_row.addWidget(section, 1)
+        layout.addLayout(detail_row)
         layout.addStretch()
-        return page
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(page)
+        return scroll
 
     def _diagnostic_page(self) -> QWidget:
         page, layout = self._page("Diagnóstico técnico")
@@ -707,7 +803,7 @@ class ExpandedPanel(QMainWindow):
         return page
 
     def _navigation_changed(self, index: int) -> None:
-        if index in (2, 3):
+        if index in (0, 2, 3):
             self.history_requested.emit()
 
     def _range_changed(self, _index: int) -> None:
@@ -783,6 +879,20 @@ class ExpandedPanel(QMainWindow):
             self.incident_list.setCurrentRow(selected_row)
         else:
             self.incident_detail.setPlainText(self.t("No hay incidentes registrados."))
+
+    def show_overview(self, series: object, incidents: list[dict]) -> None:
+        self.overview_chart.set_series(series)
+        active = next((item for item in incidents if item["ended_at"] is None), None)
+        if active is None:
+            self.incident_summary_label.setText(self.t("Sin incidentes activos."))
+            return
+        phenomenon = weather_name(Weather(active["weather"]), self.language)
+        severity = self.t("Severidad")
+        evidence = active.get("evidence") or []
+        detail = (evidence_name(evidence[-1]["code"], evidence[-1].get("detail", ""),
+                                self.language) if evidence else "")
+        self.incident_summary_label.setText(
+            f"{phenomenon} · {severity}: {active['severity']:.0%}\n{detail}")
 
     def _incident_page(self) -> QWidget:
         page, layout = self._page("Incidentes")
@@ -979,16 +1089,36 @@ class ExpandedPanel(QMainWindow):
         self.weather_previews[weather].invalidate_image()
 
     def update_measurement(self, round_: MeasurementRound, result: Classification) -> None:
-        self.summary_label.setText(
-            f"{weather_name(result.weather, self.language)} · "
-            f"{weather_description(result.weather, self.language)}")
+        self.overview_scene.set_weather(result.weather)
+        self.summary_label.setText(weather_name(result.weather, self.language))
+        self.summary_description.setText(weather_description(result.weather, self.language))
+        self.panel_status.setText(self.t("●  Monitoreo activo · datos reales"))
         confidence_label = "Confidence" if self.language == "en" else "Confianza"
         severity_label = "Severity" if self.language == "en" else "Severidad"
         self.confidence_label.setText(
             f"{confidence_label}: {result.confidence:.0%}   "
             f"{severity_label}: {result.severity:.0%}")
         self.evidence_label.setText("\n".join(
-            evidence_name(e.code, e.detail, self.language) for e in result.evidence))
+            evidence_name(e.code, e.detail, self.language) for e in result.evidence)
+            or self.t("Sin evidencias concluyentes todavía."))
+        tcp = [p for p in round_.probes if p.kind == ProbeKind.TCP]
+        dns = [p for p in round_.probes if p.kind == ProbeKind.DNS]
+        external = [p for p in round_.probes if p.kind in (ProbeKind.TCP, ProbeKind.HTTPS)]
+        gateway = [p for p in round_.probes if p.kind == ProbeKind.ICMP]
+        valid_tcp = [p.duration_ms for p in tcp if p.ok and p.duration_ms is not None]
+        self.overview_cards["latency"].value.setText(
+            f"{sum(valid_tcp)/len(valid_tcp):.0f} ms" if valid_tcp else "—")
+        self.overview_cards["failures"].value.setText(
+            f"{sum(not p.ok for p in tcp)/len(tcp):.0%}" if tcp else "—")
+        self.overview_cards["dns"].value.setText(
+            self.t("Correcto") if dns and all(p.ok for p in dns)
+            else self.t("Con fallos") if dns else "—")
+        self.overview_cards["gateway"].value.setText(
+            self.t("Responde") if any(p.ok for p in gateway)
+            else self.t("Sin respuesta") if gateway else "—")
+        self.overview_cards["external"].value.setText(
+            self.t("Confirmada") if any(p.ok for p in external)
+            else self.t("Sin confirmar") if external else "—")
         adapter_label = "Route adapter" if self.language == "en" else "Adaptador de ruta"
         gateway_label = "IPv4 gateway" if self.language == "en" else "Puerta de enlace IPv4"
         lines = [
@@ -1018,6 +1148,11 @@ class ExpandedPanel(QMainWindow):
             if probe.detail:
                 lines.append(f"  {probe.detail}")
         self.diagnostic_label.setText("\n".join(lines))
+
+    def update_variation(self, points: tuple[CompactPoint, ...]) -> None:
+        value = points[-1].variation_ms if points else None
+        self.overview_cards["variation"].value.setText(
+            f"{value:.0f} ms" if value is not None else "—")
 
 
 class DesktopController(QObject):
@@ -1075,6 +1210,7 @@ class DesktopController(QObject):
             self.worker.measured.connect(self._measured)
             self.worker.failed.connect(self._failed)
             self.worker.start()
+            self._request_history()
 
     def _tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
@@ -1096,15 +1232,18 @@ class DesktopController(QObject):
         self.widget.update_measurement(round_, result)
         self.recent_rounds.append(round_)
         self.recent_rounds = self.recent_rounds[-30:]
-        self.widget.update_history(compact_points(self.recent_rounds))
+        points = compact_points(self.recent_rounds)
+        self.widget.update_history(points)
+        self.panel.update_variation(points)
         self.panel.update_measurement(round_, result)
         self.tray.setToolTip(f"Network Weather · {weather_name(result.weather, self.language)}")
-        if self.panel.nav.currentRow() in (2, 3):
+        if self.panel.nav.currentRow() in (0, 2, 3):
             self._request_history()
 
     def _history_seed(self, rounds: list[MeasurementRound]) -> None:
         self.recent_rounds = rounds[-30:]
-        self.widget.update_history(compact_points(self.recent_rounds))
+        # Prior rounds belong in the chart, but compact status cards need a fresh round.
+        self.widget.sparkline.set_points(compact_points(self.recent_rounds))
 
     def _request_history(self) -> None:
         if self.demo:
@@ -1112,14 +1251,20 @@ class DesktopController(QObject):
         if self.history_worker is not None:
             self.history_pending = True
             return
-        start, end, destination = self.panel.selected_history_range()
+        overview = self.panel.nav.currentRow() == 0
+        if overview:
+            end = datetime.now(UTC)
+            start, destination = end - timedelta(hours=1), None
+        else:
+            start, end, destination = self.panel.selected_history_range()
         if start >= end:
             self.panel.history_status.setText(translate(
                 "El inicio debe ser anterior al fin.", self.language))
             return
         self.panel.history_status.setText(translate("Consultando historial…", self.language))
         self.history_worker = HistoryQueryThread(start, end, destination)
-        self.history_worker.loaded.connect(self.panel.show_history)
+        self.history_worker.loaded.connect(
+            self.panel.show_overview if overview else self.panel.show_history)
         self.history_worker.failed.connect(self.panel.history_status.setText)
         self.history_worker.finished.connect(self._history_finished)
         self.history_worker.start()
@@ -1133,22 +1278,30 @@ class DesktopController(QObject):
     def _failed(self, message: str) -> None:
         self.widget.monitoring.setText(message)
         self.tray.setToolTip(translate("Network Weather · error de medición", self.language))
+        self.panel.panel_status.setText(translate(
+            "Network Weather · error de medición", self.language))
 
     def _demo_next(self) -> None:
         weather = list(Weather)[self.demo_index % len(Weather)]
         self.demo_index += 1
         self.widget.scene.set_weather(weather)
+        self.panel.overview_scene.set_weather(weather)
         self.widget.weather_label.setText(weather_name(weather, self.language))
         self.widget.description.setText(weather_description(weather, self.language))
         heading = "DEMO MODE" if self.language == "en" else "MODO DEMOSTRACIÓN"
         self.panel.summary_label.setText(
             f"{heading} · {weather_name(weather, self.language)}")
+        self.panel.summary_description.setText(weather_description(weather, self.language))
+        self.panel.panel_status.setText(translate(
+            "●  MODO DEMOSTRACIÓN · sin mediciones reales", self.language))
         self.panel.evidence_label.setText(translate(
             "Escena visual sintética. No hay pruebas de red ni historial.", self.language))
         demo_label = "demo" if self.language == "en" else "demostración"
         self.tray.setToolTip(
             f"Network Weather · {demo_label}: {weather_name(weather, self.language)}")
         for card in self.widget.cards.values():
+            card.value.setText("demo")
+        for card in self.panel.overview_cards.values():
             card.value.setText("demo")
 
     def exit(self) -> None:

@@ -221,3 +221,35 @@ def test_widget_restores_saved_position_on_an_available_screen(tmp_path):
     assert any(screen.availableGeometry().contains(widget.geometry())
                for screen in app.screens())
     widget.hide()
+
+
+def test_overview_cards_use_observed_probe_results(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    settings.setValue("language", "en")
+    widget = WeatherWidget(settings)
+    panel = ExpandedPanel(settings, widget)
+    at = datetime(2026, 11, 22, tzinfo=UTC)
+    probes = (
+        ProbeResult(at, "a.example", ProbeKind.DNS, ProbeStatus.SUCCESS, 5.0),
+        ProbeResult(at, "a.example", ProbeKind.TCP, ProbeStatus.TIMEOUT, None),
+        ProbeResult(at, "a.example", ProbeKind.HTTPS, ProbeStatus.SUCCESS, 50.0),
+        ProbeResult(at, "192.0.2.1", ProbeKind.ICMP, ProbeStatus.TIMEOUT, None),
+    )
+    round_ = MeasurementRound(at, at, probes)
+    result = Classification(Weather.RAINY, (), 0.75, 0.5, (), 3)
+    panel.update_measurement(round_, result)
+    assert panel.overview_scene.weather == Weather.RAINY
+    assert panel.overview_cards["latency"].value.text() == "—"
+    assert panel.overview_cards["failures"].value.text() == "100%"
+    assert panel.overview_cards["dns"].value.text() == "Healthy"
+    assert panel.overview_cards["gateway"].value.text() == "No reply"
+    assert panel.overview_cards["external"].value.text() == "Confirmed"
+    assert panel.evidence_label.text() == "No conclusive evidence yet."
+    series = HistorySeries(at - timedelta(hours=1), at, (), (), (), 120.0, False)
+    panel.show_overview(series, [])
+    assert panel.overview_chart.series is series
+    assert panel.incident_summary_label.text() == "No active incidents."
+    panel.close()
+    widget.hide()
+    app.processEvents()

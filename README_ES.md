@@ -32,6 +32,10 @@ En **Configuración → Idioma**, elige Español o English. La preferencia se ap
 
 Vista actual del widget en modo demostración: ![Widget de tormenta, versión de desarrollo](docs/widget-demo-v2.png)
 
+Vista del resumen expandido con **valores sintéticos solo para revisar el diseño**: ![Vista previa del panel de Network Weather](docs/overview-preview.png)
+
+El resumen presenta la escena meteorológica, seis tarjetas de estado, el historial observado de la última hora, el incidente activo y sus evidencias. La gráfica se consulta en SQLite desde un hilo separado; en funcionamiento normal solo muestra rondas y latencias guardadas. Las tarjetas distinguen fallos TCP, estado DNS, respuesta ICMP de la puerta de enlace y conectividad externa confirmada sin convertirlos en pérdida IP ni atribuir causas no medidas.
+
 ## Qué se mide
 
 Cada ronda consulta por defecto `example.com` y `www.wikipedia.org`. Para cada destino hace una resolución DNS del sistema, una conexión TCP al puerto 443 y una solicitud HTTPS `HEAD /` con TLS verificado. Es una solicitud pequeña; no descarga el cuerpo. Una respuesta HTTP válida, incluso 4xx/5xx, confirma conectividad HTTP y conserva el código recibido. El usuario puede cambiar los destinos con `--destination` (repetible). No se modifica la configuración de red.

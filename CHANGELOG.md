@@ -16,5 +16,6 @@
 - Added a time-scaled compact chart with persisted latency/variation selection and gaps for missing observations.
 - Recover a floating widget whose saved position is outside the current display layout.
 - Reset classification after long observation gaps and end prior incidents at the last observed sample without claiming recovery.
+- Redesigned the expanded overview around the weather scene, observed status cards, last-hour history, active incident and evidence.
 
 This is a development snapshot. No release or executable has been published.
