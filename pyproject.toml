@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "network-weather"
+version = "0.1.0"
+description = "Local Windows network monitor with explainable weather states"
+requires-python = ">=3.12"
+dependencies = ["psutil>=5.9,<8"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "ruff>=0.6"]
+desktop = ["PySide6-Essentials>=6.8,<7"]
+
+[project.scripts]
+network-weather = "network_weather.cli:main"
+network-weather-desktop = "network_weather.desktop:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
