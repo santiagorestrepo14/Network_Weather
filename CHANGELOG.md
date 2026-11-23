@@ -36,5 +36,6 @@
 - Prevented duplicate Windows desktop processes with a per-user lock; a second launch restores the first widget through a local socket.
 - Made the floating widget resizable from its lower-left corner and restored its saved size on launch.
 - Explained the initial Unknown state with measurement-round progress and candidate confirmation in Spanish and English.
+- Added a Windows CI bundle build and packaged demo smoke check for scene assets, single-instance startup and demo isolation.
 
 This is a development snapshot. No release or executable has been published.
