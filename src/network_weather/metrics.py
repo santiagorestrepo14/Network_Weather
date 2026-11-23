@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from itertools import pairwise
+from math import ceil
 from statistics import median
 
 from network_weather.models import ProbeKind, ProbeResult
@@ -14,7 +15,9 @@ class MetricSummary:
     attempted: int
     successful: int
     median_ms: float | None
+    p95_ms: float | None
     jitter_ms: float | None
+    variation_pairs: int
     failure_percent: float | None
 
 
@@ -22,7 +25,8 @@ def summarize(results: list[ProbeResult], destination: str, kind: ProbeKind) -> 
     """Jitter = mean absolute difference between successive successful RTTs.
 
     Only adjacent successful probes of the same destination and protocol count.
-    This is RTT variation, not one-way network jitter. Failure rate is the share
+    P95 uses the nearest-rank method on successful durations. Variation is
+    between probe durations, not one-way network jitter. Failure rate is the share
     of actual probes without a successful response; it is protocol-specific.
     """
     selected = sorted(
@@ -43,6 +47,8 @@ def summarize(results: list[ProbeResult], destination: str, kind: ProbeKind) -> 
         attempted=len(selected),
         successful=len(successful),
         median_ms=median(durations) if durations else None,
+        p95_ms=sorted(durations)[ceil(0.95 * len(durations)) - 1] if durations else None,
         jitter_ms=sum(pairs) / len(pairs) if pairs else None,
+        variation_pairs=len(pairs),
         failure_percent=100 * (len(selected) - len(successful)) / len(selected) if selected else None,
     )

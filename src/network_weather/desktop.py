@@ -36,6 +36,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QApplication,
     QCheckBox,
     QComboBox,
@@ -44,6 +45,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -57,12 +59,15 @@ from PySide6.QtWidgets import (
     QStackedLayout,
     QStackedWidget,
     QSystemTrayIcon,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from network_weather.compact_history import CompactPoint, compact_points, visible_segments
 from network_weather.config import ProbeConfig, default_data_dir
+from network_weather.diagnostics import DiagnosticSummary, recent_diagnostics
 from network_weather.history import HistoryStore
 from network_weather.history_chart import PALETTE, HistoryChart, weather_segments
 from network_weather.i18n import (
@@ -294,6 +299,7 @@ class WeatherScene(QWidget):
 STYLE = """
 QWidget { color: #eee9ff; font-family: 'Segoe UI'; font-size: 12px; }
 QWidget#panelRoot { background: #111936; }
+QWidget#panelPage { background: #111936; }
 QFrame#panelHeader { background: #1b254d; border: 1px solid #5364a5; border-radius: 15px; }
 QFrame#overviewSection { background: #22284f; border: 1px solid #625c99; border-radius: 15px; }
 QFrame#overviewHero { background: #171e41; border: 1px solid #745ba9; border-radius: 16px; }
@@ -667,6 +673,7 @@ class ExpandedPanel(QMainWindow):
 
     def _page(self, heading: str) -> tuple[QWidget, QVBoxLayout]:
         page = QWidget()
+        page.setObjectName("panelPage")
         layout = QVBoxLayout(page)
         title = QLabel(self.t(heading))
         title.setStyleSheet("font-size:24px;font-weight:700;color:#f5ddff")
@@ -675,6 +682,7 @@ class ExpandedPanel(QMainWindow):
 
     def _summary_page(self) -> QWidget:
         page = QWidget()
+        page.setObjectName("panelPage")
         layout = QVBoxLayout(page)
         layout.setContentsMargins(2, 2, 2, 2)
         layout.setSpacing(10)
@@ -754,13 +762,52 @@ class ExpandedPanel(QMainWindow):
 
     def _diagnostic_page(self) -> QWidget:
         page, layout = self._page("Diagnóstico técnico")
+        self.diagnostic_window_label = QLabel(self.t("Esperando muestras comparables…"))
+        self.diagnostic_window_label.setStyleSheet("color:#b9c4ed")
+        layout.addWidget(self.diagnostic_window_label)
+        self.diagnostic_table = QTableWidget(0, 8)
+        self.diagnostic_table.setHorizontalHeaderLabels([
+            self.t(item) for item in (
+                "Destino", "Protocolo", "Intentos", "Éxitos", "Mediana",
+                "P95", "Variación", "Fallos",
+            )
+        ])
+        self.diagnostic_table.verticalHeader().hide()
+        self.diagnostic_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.diagnostic_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.diagnostic_table.setAlternatingRowColors(True)
+        self.diagnostic_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.ResizeToContents)
+        self.diagnostic_table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.Stretch)
+        self.diagnostic_table.setMinimumHeight(260)
+        self.diagnostic_table.setStyleSheet(
+            "QTableWidget{background:#1c2449;alternate-background-color:#242d55;"
+            "border:1px solid #5a639d;gridline-color:#3b4679;}"
+            "QHeaderView::section{background:#303961;color:#f1e9ff;padding:6px;"
+            "border:1px solid #5a639d;}"
+        )
+        layout.addWidget(self.diagnostic_table)
+        note = QLabel(self.t(
+            "P95: rango más cercano entre éxitos. Variación: diferencias entre tiempos consecutivos del mismo destino y protocolo; no es jitter unidireccional."))
+        note.setWordWrap(True)
+        note.setStyleSheet("color:#b9c4ed;font-size:11px")
+        layout.addWidget(note)
+        context = QFrame()
+        context.setObjectName("overviewSection")
+        context_layout = QVBoxLayout(context)
+        context_layout.addWidget(QLabel(self.t("Última ronda y contexto de red")))
         self.diagnostic_label = QLabel(self.t("Esperando pruebas DNS, TCP y HTTPS…"))
         self.diagnostic_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.diagnostic_label.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.diagnostic_label.setWordWrap(True)
-        layout.addWidget(self.diagnostic_label)
+        context_layout.addWidget(self.diagnostic_label)
+        layout.addWidget(context)
         layout.addStretch()
-        return page
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(page)
+        return scroll
 
     def _history_page(self) -> QWidget:
         page, layout = self._page("Historial observado")
@@ -1154,6 +1201,26 @@ class ExpandedPanel(QMainWindow):
         self.overview_cards["variation"].value.setText(
             f"{value:.0f} ms" if value is not None else "—")
 
+    def update_diagnostics(self, summary: DiagnosticSummary) -> None:
+        if self.language == "en":
+            caption = f"{summary.rounds} comparable recent rounds"
+        else:
+            caption = f"{summary.rounds} rondas recientes comparables"
+        self.diagnostic_window_label.setText(caption)
+        self.diagnostic_table.setRowCount(len(summary.rows))
+        for row_index, row in enumerate(summary.rows):
+            def ms(value: float | None) -> str:
+                return f"{value:.1f} ms" if value is not None else "—"
+
+            values = (
+                row.destination, row.kind.value.upper(), str(row.attempted),
+                str(row.successful), ms(row.median_ms), ms(row.p95_ms),
+                f"{ms(row.jitter_ms)} ({row.variation_pairs})",
+                f"{row.failure_percent:.0f}%" if row.failure_percent is not None else "—",
+            )
+            for column, value in enumerate(values):
+                self.diagnostic_table.setItem(row_index, column, QTableWidgetItem(value))
+
 
 class DesktopController(QObject):
     def __init__(self, app: QApplication, demo: bool = False) -> None:
@@ -1235,6 +1302,8 @@ class DesktopController(QObject):
         points = compact_points(self.recent_rounds)
         self.widget.update_history(points)
         self.panel.update_variation(points)
+        interval = self.worker.config.interval_seconds if self.worker else 30
+        self.panel.update_diagnostics(recent_diagnostics(self.recent_rounds, interval))
         self.panel.update_measurement(round_, result)
         self.tray.setToolTip(f"Network Weather · {weather_name(result.weather, self.language)}")
         if self.panel.nav.currentRow() in (0, 2, 3):

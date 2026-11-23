@@ -23,7 +23,9 @@ def test_jitter_uses_only_adjacent_successes():
     assert summary.attempted == 5
     assert summary.successful == 4
     assert summary.median_ms == 35
+    assert summary.p95_ms == 70
     assert summary.jitter_ms == 15
+    assert summary.variation_pairs == 2
     assert summary.failure_percent == 20
 
 
@@ -31,7 +33,9 @@ def test_absent_samples_are_unknown():
     summary = summarize([], "example.com", ProbeKind.HTTPS)
     assert summary.attempted == 0
     assert summary.median_ms is None
+    assert summary.p95_ms is None
     assert summary.jitter_ms is None
+    assert summary.variation_pairs == 0
     assert summary.failure_percent is None
 
 

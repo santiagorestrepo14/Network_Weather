@@ -17,5 +17,6 @@
 - Recover a floating widget whose saved position is outside the current display layout.
 - Reset classification after long observation gaps and end prior incidents at the last observed sample without claiming recovery.
 - Redesigned the expanded overview around the weather scene, observed status cards, last-hour history, active incident and evidence.
+- Added per-destination diagnostic sample counts, medians, nearest-rank P95, comparable-time variation and protocol-specific failure percentages.
 
 This is a development snapshot. No release or executable has been published.

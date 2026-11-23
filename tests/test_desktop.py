@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 from network_weather.compact_history import compact_points
 from network_weather.desktop import ExpandedPanel, WeatherScene, WeatherWidget
+from network_weather.diagnostics import recent_diagnostics
 from network_weather.history import HistorySeries, LatencyBin, WeatherPoint
 from network_weather.models import (
     MeasurementRound,
@@ -250,6 +251,33 @@ def test_overview_cards_use_observed_probe_results(tmp_path):
     panel.show_overview(series, [])
     assert panel.overview_chart.series is series
     assert panel.incident_summary_label.text() == "No active incidents."
+    panel.close()
+    widget.hide()
+    app.processEvents()
+
+
+def test_diagnostic_table_shows_samples_and_excludes_failed_latency(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    settings.setValue("language", "en")
+    widget = WeatherWidget(settings)
+    panel = ExpandedPanel(settings, widget)
+    start = datetime(2026, 11, 22, tzinfo=UTC)
+    rounds = []
+    for offset, duration in ((0, 20.0), (30, None), (60, 45.0)):
+        at = start + timedelta(seconds=offset)
+        probe = ProbeResult(at, "example.com", ProbeKind.TCP,
+                            ProbeStatus.SUCCESS if duration is not None else ProbeStatus.TIMEOUT,
+                            duration)
+        rounds.append(MeasurementRound(at, at, (probe,)))
+    panel.update_diagnostics(recent_diagnostics(rounds, 30))
+    assert panel.diagnostic_table.rowCount() == 1
+    assert panel.diagnostic_table.item(0, 2).text() == "3"
+    assert panel.diagnostic_table.item(0, 3).text() == "2"
+    assert panel.diagnostic_table.item(0, 4).text() == "32.5 ms"
+    assert panel.diagnostic_table.item(0, 5).text() == "45.0 ms"
+    assert panel.diagnostic_table.item(0, 6).text() == "— (0)"
+    assert panel.diagnostic_table.item(0, 7).text() == "33%"
     panel.close()
     widget.hide()
     app.processEvents()

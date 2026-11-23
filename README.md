@@ -36,7 +36,11 @@ Current development preview (visual demo, no measured values): ![Storm widget pr
 
 Expanded overview layout with **synthetic values for visual review only**: ![Network Weather overview preview](docs/overview-preview.png)
 
+Technical Diagnostics layout with **synthetic values for visual review only**: ![Network Weather diagnostics preview](docs/diagnostics-preview.png)
+
 The overview shows the current weather scene, six observed status cards, the last hour of saved weather and TCP history, the active incident and supporting evidence. Its SQLite history query runs outside the UI thread. TCP failures, DNS status, gateway ICMP replies and confirmed external connectivity remain distinct from IP packet loss or an attributed root cause.
+
+Technical Diagnostics shows comparable recent samples by destination and protocol: attempts, successes, median, nearest-rank P95, variation and failures. Variation averages absolute differences between adjacent successful probe times for that destination and protocol. TCP connection-time variation is neither ICMP RTT nor one-way jitter. Failed probes do not contribute a duration, and pauses or route changes start a new comparison window.
 
 The DNS resolver may cache answers and has an OS-controlled timeout. Socket local IPv4/IPv6 addresses are matched to adapters when unambiguous; other routes remain unknown. A cached, read-only Windows query identifies the IPv4 gateway, followed by an ICMP echo check when available. ICMP success has no fabricated RTT, and missing echo does not prove a local outage. TCP/HTTPS failure percentages are protocol-specific and are not IP packet-loss measurements. See [README_ES.md](README_ES.md) for metrics, limitations and the implementation sequence.
 
