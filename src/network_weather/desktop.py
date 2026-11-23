@@ -515,7 +515,7 @@ class HistoryQueryThread(QThread):
 
     def run(self) -> None:
         try:
-            with HistoryStore(default_data_dir() / "history.db") as store:
+            with HistoryStore(default_data_dir() / "history.db", read_only=True) as store:
                 self.loaded.emit(store.history_range(self.range_start, self.range_end,
                                                      self.destination),
                                  store.incidents(100))

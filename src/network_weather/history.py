@@ -48,7 +48,11 @@ class HistorySeries:
 
 
 class HistoryStore:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, read_only: bool = False) -> None:
+        if read_only:
+            self.connection = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
+            self.connection.execute("PRAGMA query_only=ON")
+            return
         path.parent.mkdir(parents=True, exist_ok=True)
         self.connection = sqlite3.connect(path)
         self.connection.execute("PRAGMA foreign_keys=ON")

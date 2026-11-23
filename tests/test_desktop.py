@@ -293,6 +293,8 @@ def test_history_panel_filters_and_renders_observed_series(tmp_path):
 def test_history_query_thread_can_start_and_load_an_empty_range(tmp_path, monkeypatch):
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr("network_weather.desktop.default_data_dir", lambda: tmp_path)
+    with HistoryStore(tmp_path / "history.db"):
+        pass
     end = datetime.now(UTC)
     thread = HistoryQueryThread(end - timedelta(hours=1), end, None)
     loaded = []

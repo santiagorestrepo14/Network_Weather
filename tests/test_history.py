@@ -2,6 +2,8 @@ import json
 import sqlite3
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from network_weather.history import HistoryStore
 from network_weather.history_chart import weather_segments
 from network_weather.models import (
@@ -41,6 +43,24 @@ def test_history_survives_reopening(tmp_path):
         assert loaded[0].gateway_address == "192.0.2.1"
         assert loaded[0].wifi == round_.wifi
         assert store.recent_weather() == [(at.isoformat(), Weather.UNKNOWN)]
+
+
+def test_read_only_history_queries_existing_database_without_writing(tmp_path):
+    path = tmp_path / "history with spaces.db"
+    with HistoryStore(path):
+        pass
+    with HistoryStore(path, read_only=True) as store:
+        assert store.recent_rounds() == []
+        assert store.incidents() == []
+        with pytest.raises(sqlite3.OperationalError):
+            store.connection.execute("INSERT INTO schema_meta VALUES ('read_only', '1')")
+
+
+def test_read_only_history_does_not_create_missing_database(tmp_path):
+    path = tmp_path / "missing" / "history.db"
+    with pytest.raises(sqlite3.OperationalError):
+        HistoryStore(path, read_only=True)
+    assert not path.parent.exists()
 
 
 def test_incident_stays_open_through_uncertainty_and_closes_after_recovery(tmp_path):
