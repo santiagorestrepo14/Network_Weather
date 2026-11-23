@@ -103,7 +103,7 @@ def main(argv: list[str] | None = None) -> int:
         if rounds < expected:
             raise RuntimeError(f"Only {rounds} rounds were saved; expected at least {expected}")
         mib = 1024 * 1024
-        print(json.dumps({
+        result = {
             "duration_seconds": args.seconds,
             "interval_seconds": args.interval,
             "rounds": rounds,
@@ -114,7 +114,11 @@ def main(argv: list[str] | None = None) -> int:
             "memory_peak_mib": round(max(memory_samples) / mib, 1),
             "cpu_seconds": round((cpu_end or 0) - (cpu_start or 0), 2),
             "data_dir": str(data_root) if args.data_dir else "temporary (removed)",
-        }, indent=2))
+        }
+        report = json.dumps(result, indent=2)
+        if args.data_dir:
+            (data_root / "soak-result.json").write_text(report + "\n", encoding="utf-8")
+        print(report)
     return 0
 
 
