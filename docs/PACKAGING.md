@@ -26,4 +26,20 @@ The Windows CI workflow now builds the PyInstaller bundle after unit tests and r
 The same bundle smoke check passed locally against v29 after the compact time-label and status-color changes; the v29 ZIP integrity check found no errors.
 The v30 bundle smoke check and ZIP integrity check passed after separating pending weather from confirmed secondary phenomena. The automated suite contained 111 passing tests.
 
-Desde PowerShell, ejecuta los mismos comandos en Windows. El empaquetado local terminó correctamente, pero todavía necesita validación en una máquina limpia antes de publicar un ejecutable.
+## Instrucciones de empaquetado en español
+
+Desde PowerShell, con Python 3.12 o superior:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev,desktop]"
+python -m pip install pyinstaller
+python -m ruff check .
+python -m pytest -q
+python -m PyInstaller --noconfirm NetworkWeather.spec
+python scripts/smoke_bundle.py
+.\dist\NetworkWeather\NetworkWeather.exe --demo
+```
+
+El ejecutable portátil queda en `dist\NetworkWeather`; conserva toda esa carpeta al copiarlo. El script de comprobación verifica las ocho imágenes, el arranque en demostración, la instancia única y que el modo demo no escriba mediciones reales. La CI de Windows ejecutará los mismos pasos cuando el proyecto esté en GitHub. El paquete local todavía necesita probarse en una instalación limpia de Windows y verificar directamente la salida por bandeja y la persistencia de imágenes dentro del ejecutable antes de una publicación pública.

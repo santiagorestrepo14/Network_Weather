@@ -6,4 +6,8 @@
 
 The event loop does not call network probes or SQLite. A separate `HistoryQueryThread` opens a read-only connection to the monitor's WAL database, queries time ranges and incidents, and sends results to the UI. `history_chart.py` draws categorical weather segments and numeric TCP latency bins independently. `incident_view.py` formats persisted incident evidence without assigning an unsupported cause. Settings and custom images live under `%LOCALAPPDATA%\NetworkWeather`. Synthetic demo visuals are not written to the measurement database.
 
+El bucle gráfico no ejecuta sondas ni consultas SQLite. `HistoryQueryThread` abre una conexión de solo lectura a la base WAL del monitor, consulta rangos e incidentes y envía los resultados a la interfaz. `history_chart.py` dibuja por separado los segmentos meteorológicos categóricos y los intervalos numéricos de latencia TCP. `incident_view.py` presenta las evidencias guardadas sin atribuir una causa no demostrada. La configuración y las imágenes personalizadas viven en `%LOCALAPPDATA%\NetworkWeather`; el modo demostración no guarda valores sintéticos como mediciones.
+
 Desktop startup holds a per-user `QLockFile` for the process lifetime. A second launch contacts the first over a local socket to restore its widget. The lock file also lets a later launch recover after an abrupt process termination.
+
+Durante toda su ejecución, la aplicación mantiene un `QLockFile` por usuario. Si se intenta abrir una segunda copia, esta contacta a la primera por un socket local para restaurar el widget. El bloqueo también permite iniciar de nuevo la aplicación después de una terminación abrupta.
