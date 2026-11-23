@@ -428,7 +428,12 @@ def test_real_desktop_controller_monitors_while_hidden_and_exits_from_tray(tmp_p
             time.sleep(0.01)
         assert controller.recent_rounds == [observed], controller.widget.monitoring.text()
         assert controller.worker.isRunning()
-        controller.widget.hide_requested.emit()
+        controller.widget.hide_button.click()
+        app.processEvents()
+        assert not controller.widget.isVisible()
+        controller.show_widget()
+        assert controller.widget.isVisible()
+        controller.widget.close()
         app.processEvents()
         assert not controller.widget.isVisible()
         deadline = time.monotonic() + 12

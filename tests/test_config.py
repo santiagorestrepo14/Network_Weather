@@ -3,10 +3,21 @@ import pytest
 from network_weather.config import ProbeConfig
 
 
-@pytest.mark.parametrize("host", ["", "bad host", "https://example.com", "bad\r\nHost:x", "a..b", "-bad.com"])
+@pytest.mark.parametrize("host", ["", "bad host", "https://example.com", "bad\r\nHost:x",
+                                  "a..b", "-bad.com", "example.com.."])
 def test_rejects_invalid_destination(host):
     with pytest.raises(ValueError):
         ProbeConfig(destinations=(host,))
+
+
+@pytest.mark.parametrize("destinations", [
+    ("example.com", "EXAMPLE.COM"),
+    ("example.com", "example.com."),
+    ("Example.COM.", "example.com"),
+])
+def test_case_and_trailing_dot_do_not_create_distinct_probe_destinations(destinations):
+    with pytest.raises(ValueError, match="unique"):
+        ProbeConfig(destinations=destinations)
 
 
 def test_rejects_header_injection_path():

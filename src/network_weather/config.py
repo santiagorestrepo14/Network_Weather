@@ -26,10 +26,13 @@ class ProbeConfig:
     def __post_init__(self) -> None:
         if not 1 <= len(self.destinations) <= 8:
             raise ValueError("Choose between 1 and 8 destinations")
-        if len(set(self.destinations)) != len(self.destinations):
-            raise ValueError("Destinations must be unique")
+        if any(not isinstance(host, str) for host in self.destinations):
+            raise ValueError("Destinations must be hostnames")
+        if len({host.rstrip(".").lower() for host in self.destinations}) != len(self.destinations):
+            raise ValueError("Destinations must be unique regardless of case or trailing dot")
         for host in self.destinations:
-            if not host or len(host) > 253 or not re.fullmatch(r"[A-Za-z0-9.-]+", host):
+            if (not host or len(host) > 253 or host.endswith("..")
+                    or not re.fullmatch(r"[A-Za-z0-9.-]+", host)):
                 raise ValueError(f"Invalid destination: {host!r}")
             if any(not label or len(label) > 63 or label.startswith("-") or label.endswith("-")
                    for label in host.rstrip(".").split(".")):
