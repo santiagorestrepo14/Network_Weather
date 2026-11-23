@@ -5,6 +5,8 @@ from __future__ import annotations
 import socket
 import ssl
 import time
+from collections.abc import Callable
+from dataclasses import replace
 from ipaddress import ip_address
 
 from network_weather.models import ProbeKind, ProbeResult, ProbeStatus, utc_now
@@ -137,10 +139,44 @@ def probe_destination(host: str, timeout: float, path: str = "/") -> tuple[Probe
     dns, infos = probe_dns(host)
     if not infos:
         return (dns,)
-    # One resolved address keeps the three results comparable. Other addresses are
-    # retained by the resolver but are not silently counted as successful probes.
-    info = infos[0]
-    return dns, probe_tcp(host, info, timeout), probe_https(host, info, timeout, path)
+    candidates = _candidate_infos(infos)
+    tcp, tcp_info = _probe_with_fallback(
+        candidates, lambda info: probe_tcp(host, info, timeout))
+    https_candidates = (tcp_info, *(info for info in candidates if info != tcp_info))
+    https, _ = _probe_with_fallback(
+        https_candidates, lambda info: probe_https(host, info, timeout, path))
+    return dns, tcp, https
+
+
+def _candidate_infos(infos: list[AddressInfo]) -> tuple[AddressInfo, ...]:
+    """Bound retries to the OS-preferred address and one distinct alternative."""
+    first = infos[0]
+    alternatives = [info for info in infos[1:]
+                    if (info[0], info[4]) != (first[0], first[4])]
+    if not alternatives:
+        return (first,)
+    other_family = next((info for info in alternatives if info[0] != first[0]), None)
+    return first, other_family or alternatives[0]
+
+
+def _probe_with_fallback(
+    candidates: tuple[AddressInfo, ...], probe: Callable[[AddressInfo], ProbeResult],
+) -> tuple[ProbeResult, AddressInfo]:
+    failed: list[ProbeResult] = []
+    for info in candidates:
+        result = probe(info)
+        if result.ok:
+            if failed:
+                previous = ", ".join(f"{item.address}: {item.status.value}" for item in failed)
+                result = replace(result, detail=f"Fallback after {previous}"[:300])
+            return result, info
+        failed.append(result)
+    first = failed[0]
+    if len(failed) > 1:
+        attempts = ", ".join(f"{item.address}: {item.status.value}" for item in failed)
+        prefix = f"{first.detail}; " if first.detail else ""
+        first = replace(first, detail=f"{prefix}tried {attempts}"[:300])
+    return first, candidates[0]
 
 
 def probe_direct_ip(address: str, timeout: float) -> ProbeResult:
