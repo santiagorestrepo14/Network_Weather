@@ -25,6 +25,7 @@ The v28 preview started with a saved 620×560 widget size, retained that prefere
 The Windows CI workflow now builds the PyInstaller bundle after unit tests and runs `scripts/smoke_bundle.py`. The smoke check verifies all eight scene images, demo startup, single-instance behavior and absence of synthetic measurements in the real SQLite database. It passed locally against the v28 bundle; the hosted GitHub Actions job has not run yet because this repository has not been uploaded.
 The same bundle smoke check passed locally against v29 after the compact time-label and status-color changes; the v29 ZIP integrity check found no errors.
 The v30 bundle smoke check and ZIP integrity check passed after separating pending weather from confirmed secondary phenomena. The automated suite contained 111 passing tests.
+In a separate local real-mode run with isolated app data and the default 30-second interval, the v30 executable remained active for 155 seconds and saved five rounds. Its working set at the end was about 131 MiB. This short check does not establish stability over hours or across different networks.
 
 ## Instrucciones de empaquetado en español
 
