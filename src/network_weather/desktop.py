@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import math
 import sqlite3
 import sys
@@ -12,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from PySide6.QtCore import (
+    QLockFile,
     QObject,
     QPoint,
     QRect,
@@ -1548,17 +1550,26 @@ def main(argv: list[str] | None = None) -> int:
     app = QApplication(sys.argv[:1])
     app.setApplicationName("Network Weather")
     app.setQuitOnLastWindowClosed(False)
-    instance = QLocalServer(app)
-    server_name = "NetworkWeather.Desktop"
-    if not instance.listen(server_name):
+    data_dir = default_data_dir()
+    data_dir.mkdir(parents=True, exist_ok=True)
+    lock = QLockFile(str(data_dir / "desktop.lock"))
+    if not lock.tryLock(0):
+        server_name = _instance_server_name(data_dir)
         other = QLocalSocket(app)
-        other.connectToServer(server_name)
-        if other.waitForConnected(500):
-            other.disconnectFromServer()
-            return 0
+        for _ in range(10):
+            other.connectToServer(server_name)
+            if other.waitForConnected(200):
+                other.disconnectFromServer()
+                break
+            time.sleep(0.1)
+        return 0
+    app.instance_lock = lock
+    instance = QLocalServer(app)
+    server_name = _instance_server_name(data_dir)
+    if not instance.listen(server_name):
         QLocalServer.removeServer(server_name)
         if not instance.listen(server_name):
-            settings_path = default_data_dir() / "settings.ini"
+            settings_path = data_dir / "settings.ini"
             language = normalize_language(QSettings(str(settings_path),
                                                     QSettings.Format.IniFormat).value("language", "es"))
             QMessageBox.critical(None, "Network Weather", translate(
@@ -1570,6 +1581,11 @@ def main(argv: list[str] | None = None) -> int:
     app.controller = controller
     app.instance_server = instance
     return app.exec()
+
+
+def _instance_server_name(data_dir: Path) -> str:
+    digest = hashlib.sha256(str(data_dir.resolve()).casefold().encode("utf-8")).hexdigest()[:16]
+    return f"NetworkWeather.Desktop.{digest}"
 
 
 def _restore_existing(server: QLocalServer, controller: DesktopController) -> None:

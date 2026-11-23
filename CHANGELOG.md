@@ -33,5 +33,6 @@
 - Shared the no-console desktop bootstrap with `pythonw.exe` startup and added a real controller start/exit integration test.
 - Sequenced the first history query after monitor database initialization to avoid a cold-start SQLite lock race.
 - Opened UI history queries with read-only SQLite connections, leaving schema setup and migration to the monitor.
+- Prevented duplicate Windows desktop processes with a per-user lock; a second launch restores the first widget through a local socket.
 
 This is a development snapshot. No release or executable has been published.
