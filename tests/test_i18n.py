@@ -3,6 +3,7 @@ from pathlib import Path
 
 from network_weather.i18n import (
     EN,
+    classification_description,
     evidence_name,
     normalize_language,
     probe_status_name,
@@ -10,7 +11,7 @@ from network_weather.i18n import (
     weather_name,
 )
 from network_weather.models import ProbeStatus
-from network_weather.weather import Weather
+from network_weather.weather import Classification, Evidence, Weather
 
 
 def test_catalog_covers_all_weather_and_probe_states():
@@ -30,6 +31,21 @@ def test_latency_evidence_retains_target_in_both_languages():
             "high_latency", "TCP connection time elevated toward example.com", language,
         )
         assert "example.com" in rendered
+
+
+def test_unknown_description_explains_measurement_progress_and_confirmation():
+    gathering = Classification(
+        Weather.UNKNOWN, (), 0.0, 0.0,
+        (Evidence("insufficient_rounds", "At least three rounds are required", 2, 3),), 2,
+    )
+    assert classification_description(gathering, "es") == "Analizando la conexión (2/3 rondas)"
+    assert classification_description(gathering, "en") == "Collecting measurements (2/3 rounds)"
+
+    confirming = Classification(Weather.UNKNOWN, (Weather.SUNNY,), 0.5, 0.0, (), 3)
+    assert classification_description(confirming, "es") == (
+        "Confirmando Soleado con otra medición")
+    assert classification_description(confirming, "en") == (
+        "Confirming Clear with another measurement")
 
 
 def test_all_static_desktop_translation_calls_have_english_entries():

@@ -20,5 +20,6 @@ With a five-second configured interval, the same preview remained running for 42
 The v26 preview passed a two-process check: the second `--demo` launch exited with code 0 while the first remained running. A fresh launch also succeeded after the first process was forcibly stopped. This covers duplicate launch and stale-lock recovery on the local Windows machine.
 The v27 preview repeated the duplicate-launch check after adding explicit lock release and startup error reporting; the first copy remained running and the second exited with code 0.
 It also remained running in real mode for an isolated 18-second smoke check and saved one measurement round.
+The v28 preview started with a saved 620×560 widget size, retained that preference, remained running for 18 seconds and saved one real round. A separate Qt drag check expanded both widget dimensions from the lower-left grip; the full automated suite passed with the new size persistence and initial Unknown-state descriptions.
 
 Desde PowerShell, ejecuta los mismos comandos en Windows. El empaquetado local terminó correctamente, pero todavía necesita validación en una máquina limpia antes de publicar un ejecutable.

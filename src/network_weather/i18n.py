@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from network_weather.models import ProbeStatus
-from network_weather.weather import Weather
+from network_weather.weather import Classification, Weather
 
 WEATHER_NAMES = {
     "es": {
@@ -42,6 +42,22 @@ WEATHER_DESCRIPTIONS = {
         Weather.UNKNOWN: "Waiting for enough evidence",
     },
 }
+
+
+def classification_description(result: Classification, language: str = "es") -> str:
+    """Explain the brief unknown period without implying probes have stopped."""
+    selected = normalize_language(language)
+    if result.weather != Weather.UNKNOWN:
+        return weather_description(result.weather, selected)
+    if any(item.code == "insufficient_rounds" for item in result.evidence):
+        count = min(result.sample_rounds, 3)
+        return (f"Analizando la conexión ({count}/3 rondas)" if selected == "es"
+                else f"Collecting measurements ({count}/3 rounds)")
+    if result.secondary:
+        candidate = weather_name(result.secondary[0], selected)
+        return (f"Confirmando {candidate} con otra medición" if selected == "es"
+                else f"Confirming {candidate} with another measurement")
+    return weather_description(result.weather, selected)
 
 EVIDENCE_NAMES = {
     "es": {
@@ -214,6 +230,7 @@ EN = {
     "Una prueba de red aún no termina. Intenta salir de nuevo.":
         "A network probe is still running. Try exiting again.",
     "No se pudo crear la instancia única.": "Could not create the single application instance.",
+    "Arrastra para cambiar el tamaño": "Drag to resize",
     "Clima observado": "Observed weather",
     "Latencia TCP promedio por intervalo (ms)": "Average TCP latency per interval (ms)",
     "Selecciona un periodo para consultar el historial": "Select a period to view history",

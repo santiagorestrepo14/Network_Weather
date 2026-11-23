@@ -8,7 +8,7 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 pytest.importorskip("PySide6")
 
-from PySide6.QtCore import QPoint, QSettings
+from PySide6.QtCore import QPoint, QSettings, QSize
 from PySide6.QtGui import QColor, QImage, QImageReader
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
@@ -460,6 +460,28 @@ def test_widget_restores_saved_position_on_an_available_screen(tmp_path):
     assert any(screen.availableGeometry().contains(widget.geometry())
                for screen in app.screens())
     widget.hide()
+
+
+def test_widget_resize_grip_and_saved_size_survive_restart(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings_path = tmp_path / "settings.ini"
+    settings = QSettings(str(settings_path), QSettings.Format.IniFormat)
+    widget = WeatherWidget(settings)
+    widget.show()
+    widget.resize(620, 560)
+    app.processEvents()
+    assert widget.size() == QSize(620, 560)
+    assert widget.resize_grip.isVisible()
+    assert widget.resize_grip.pos() == QPoint(2, 538)
+    widget.hide()
+    settings.sync()
+
+    reopened_settings = QSettings(str(settings_path), QSettings.Format.IniFormat)
+    reopened = WeatherWidget(reopened_settings)
+    reopened.show()
+    app.processEvents()
+    assert reopened.size() == QSize(620, 560)
+    reopened.hide()
 
 
 def test_overview_cards_use_observed_probe_results(tmp_path):

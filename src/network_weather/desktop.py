@@ -58,6 +58,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
+    QSizeGrip,
     QSpinBox,
     QStackedLayout,
     QStackedWidget,
@@ -74,6 +75,7 @@ from network_weather.diagnostics import DiagnosticSummary, recent_diagnostics
 from network_weather.history import HistoryStore
 from network_weather.history_chart import PALETTE, HistoryChart, weather_segments
 from network_weather.i18n import (
+    classification_description,
     evidence_name,
     normalize_language,
     probe_status_name,
@@ -635,6 +637,14 @@ class WeatherWidget(QWidget):
         history_row.addWidget(self.metric_select)
         layout.addLayout(history_row)
         layout.addWidget(self.sparkline)
+        self.resize_grip = QSizeGrip(self)
+        self.resize_grip.setFixedSize(20, 20)
+        self.resize_grip.setToolTip(self.t("Arrastra para cambiar el tamaño"))
+        self.resize_grip.raise_()
+        saved_size = settings.value("widget_size")
+        if isinstance(saved_size, QSize):
+            available_size = QApplication.primaryScreen().availableGeometry().size()
+            self.resize(saved_size.boundedTo(available_size))
         self._apply_pin()
         saved = settings.value("widget_position")
         screen = QApplication.primaryScreen().availableGeometry()
@@ -683,7 +693,7 @@ class WeatherWidget(QWidget):
     def update_measurement(self, round_: MeasurementRound, result: Classification) -> None:
         self.scene.set_weather(result.weather)
         self.weather_label.setText(weather_name(result.weather, self.language))
-        self.description.setText(weather_description(result.weather, self.language))
+        self.description.setText(classification_description(result, self.language))
         self.monitoring.setText(self.t("●  Monitoreo activo · datos reales"))
         tcp = [p for p in round_.probes if p.kind == ProbeKind.TCP
                and not is_ip_literal(p.destination)]
@@ -711,6 +721,14 @@ class WeatherWidget(QWidget):
             self.settings.setValue("widget_position", self.pos())
             self._drag_origin = None
         super().mouseReleaseEvent(event)
+
+    def resizeEvent(self, event: object) -> None:
+        if hasattr(self, "resize_grip"):
+            # The widget opens at the upper-right of the screen, so this corner
+            # can grow leftward without immediately hitting the display edge.
+            self.resize_grip.move(2, self.height() - 22)
+            self.settings.setValue("widget_size", self.size())
+        super().resizeEvent(event)
 
     def closeEvent(self, event: object) -> None:
         self.hide_requested.emit()
@@ -1286,7 +1304,7 @@ class ExpandedPanel(QMainWindow):
     def update_measurement(self, round_: MeasurementRound, result: Classification) -> None:
         self.overview_scene.set_weather(result.weather)
         self.summary_label.setText(weather_name(result.weather, self.language))
-        self.summary_description.setText(weather_description(result.weather, self.language))
+        self.summary_description.setText(classification_description(result, self.language))
         self.panel_status.setText(self.t("●  Monitoreo activo · datos reales"))
         confidence_label = "Confidence" if self.language == "en" else "Confianza"
         severity_label = "Severity" if self.language == "en" else "Severidad"
