@@ -174,6 +174,8 @@ class WeatherScene(QWidget):
         self._transition_started = 0.0
         self._cached_image_path = ""
         self._cached_decode_width = 0
+        self._cached_image_mode = ""
+        self._cached_native_size = QSize()
         self._cached_image = QImage()
         self.setMinimumHeight(205)
         self.timer = QTimer(self)
@@ -231,6 +233,8 @@ class WeatherScene(QWidget):
     def invalidate_image(self) -> None:
         self._cached_image_path = ""
         self._cached_decode_width = 0
+        self._cached_image_mode = ""
+        self._cached_native_size = QSize()
         self._cached_image = QImage()
         self.update()
 
@@ -249,14 +253,30 @@ class WeatherScene(QWidget):
         p.fillRect(rect, gradient)
         default_path = Path(__file__).parent / "assets" / f"{self.weather.value}.png"
         image_path = self.settings.value(f"image/{self.weather.value}", "") or str(default_path)
-        target_width = max(self.width() * 2, 144)
-        decode_width = ((target_width + 63) // 64) * 64
-        if image_path != self._cached_image_path or decode_width != self._cached_decode_width:
+        mode = self.settings.value("image_fit", "cover")
+        if image_path != self._cached_image_path:
             self._cached_image_path = image_path
-            self._cached_decode_width = decode_width
             reader = QImageReader(image_path)
-            if reader.canRead():
-                native = reader.size()
+            self._cached_native_size = reader.size() if reader.canRead() else QSize()
+            self._cached_decode_width = 0
+        native = self._cached_native_size
+        if native.width() > 0 and native.height() > 0:
+            ratio = native.width() / native.height()
+            if mode == "center":
+                target_width = native.width()
+            elif mode == "contain":
+                target_width = min(self.width(), self.height() * ratio) * 2
+            else:
+                target_width = max(self.width(), self.height() * ratio) * 2
+            decode_width = min(native.width(), max(144, math.ceil(target_width / 64) * 64))
+        else:
+            decode_width = 0
+        if (decode_width != self._cached_decode_width
+                or mode != self._cached_image_mode):
+            self._cached_decode_width = decode_width
+            self._cached_image_mode = mode
+            reader = QImageReader(image_path)
+            if decode_width and reader.canRead():
                 if native.width() > decode_width:
                     ratio = decode_width / native.width()
                     reader.setScaledSize(QSize(decode_width, max(1, int(native.height()*ratio))))
@@ -265,7 +285,6 @@ class WeatherScene(QWidget):
                 self._cached_image = QImage()
         image = self._cached_image
         if not image.isNull():
-            mode = self.settings.value("image_fit", "cover")
             if mode == "contain":
                 scaled = image.scaled(self.size(), Qt.AspectRatioMode.KeepAspectRatio,
                                       Qt.TransformationMode.SmoothTransformation)

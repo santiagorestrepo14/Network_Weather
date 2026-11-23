@@ -44,5 +44,6 @@
 - Reloaded weather images in bounded resolution steps when scenes resize, keeping enlarged custom backgrounds sharp and shrinking cached images when the widget gets smaller.
 - Replaced font-dependent widget title-bar symbols with drawn pin, panel and hide icons, including a visible pinned state and accessible control names.
 - Published a downloadable Windows development preview from successful `main` CI runs.
+- Sized scene image decoding for tall cover layouts and preserved native pixel size in center mode.
 
 This is a development snapshot. No release or executable has been published.

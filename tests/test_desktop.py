@@ -185,6 +185,33 @@ def test_weather_scene_reloads_image_at_a_useful_size_after_resize(tmp_path):
     scene.hide()
 
 
+def test_tall_cover_scene_decodes_for_height_and_center_keeps_native_pixels(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    source = QImage(2000, 500, QImage.Format.Format_RGB32)
+    source.fill(QColor("#6a5ec8"))
+    image_path = tmp_path / "wide.png"
+    assert source.save(str(image_path))
+    settings.setValue("image/rainy", str(image_path))
+    scene = WeatherScene(settings, animated=False)
+    scene.set_weather(Weather.RAINY)
+    scene.resize(160, 400)
+    scene.show()
+    app.processEvents()
+    scene.grab()
+    assert scene._cached_image.width() == 2000
+
+    scene.resize(160, 205)
+    app.processEvents()
+    scene.grab()
+    assert scene._cached_image.width() < 2000
+
+    settings.setValue("image_fit", "center")
+    scene.grab()
+    assert scene._cached_image.size() == source.size()
+    scene.hide()
+
+
 def test_each_weather_has_a_readable_default_image(tmp_path):
     app = QApplication.instance() or QApplication([])
     settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
