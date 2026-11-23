@@ -557,13 +557,17 @@ class MonitorThread(QThread):
             with Monitor(self.config) as monitor:
                 self.initial_history.emit(monitor.history.recent_rounds(30))
                 while not self.stop_event.is_set():
+                    started = time.monotonic()
                     try:
                         round_, result = monitor.measure()
                         self.measured.emit(round_, result, monitor.history.incidents(100))
                     except Exception as exc:  # noqa: BLE001 - report probe failures without killing UI
                         prefix = "Probe failed" if self.language == "en" else "No se pudo medir"
                         self.failed.emit(f"{prefix}: {exc}")
-                    self.stop_event.wait(self.config.interval_seconds)
+                    # The configured interval is between round starts, not an
+                    # extra delay after however long the probes took.
+                    remaining = self.config.interval_seconds - (time.monotonic() - started)
+                    self.stop_event.wait(max(0.5, remaining))
         except Exception as exc:  # noqa: BLE001 - show startup failures in the widget
             prefix = ("Could not start monitoring" if self.language == "en"
                       else "No se pudo iniciar el monitor")

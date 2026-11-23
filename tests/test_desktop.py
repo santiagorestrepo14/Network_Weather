@@ -13,10 +13,12 @@ from PySide6.QtGui import QColor, QImage, QImageReader
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 from network_weather.compact_history import compact_points
+from network_weather.config import ProbeConfig
 from network_weather.desktop import (
     DesktopController,
     ExpandedPanel,
     HistoryQueryThread,
+    MonitorThread,
     WeatherScene,
     WeatherWidget,
 )
@@ -361,6 +363,44 @@ def test_history_query_thread_can_start_and_load_an_empty_range(tmp_path, monkey
     assert len(loaded) == 1
     assert loaded[0][0].weather == ()
     assert loaded[0][1] == []
+
+
+def test_monitor_interval_accounts_for_probe_duration(monkeypatch):
+    class FakeHistory:
+        def recent_rounds(self, _count):
+            return []
+
+        def incidents(self, _count):
+            return []
+
+    class FakeMonitor:
+        history = FakeHistory()
+
+        def __init__(self, _config):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            pass
+
+        def measure(self):
+            time.sleep(0.2)
+            return None, None
+
+    monkeypatch.setattr("network_weather.desktop.Monitor", FakeMonitor)
+    thread = MonitorThread(ProbeConfig(interval_seconds=5))
+    waits = []
+
+    def capture_wait(seconds):
+        waits.append(seconds)
+        thread.stop()
+
+    monkeypatch.setattr(thread.stop_event, "wait", capture_wait)
+    thread.run()
+    assert len(waits) == 1
+    assert 0.5 <= waits[0] < 4.9
 
 
 def test_real_desktop_controller_stores_a_round_and_exits_cleanly(tmp_path, monkeypatch):

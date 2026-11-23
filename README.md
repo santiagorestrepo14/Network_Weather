@@ -26,6 +26,7 @@ The desktop starts monitoring in a worker thread. Close or minimize the widget t
 Drag the widget's lower-left corner to resize it; the chosen size persists. On first launch, **Unknown** shows the number of measurement rounds collected and may briefly confirm a candidate before displaying it as the current weather.
 Weather scenes reload images at bounded resolution steps as their display size changes, preserving sharpness without holding full-resolution images in small previews.
 The cover fit accounts for both scene dimensions, so tall resized widgets retain sharp backgrounds; center fit keeps the image at its original pixel size.
+The configured monitoring interval runs between the starts of rounds; when probes overrun the interval, the next round waits briefly before starting. Every stored sample keeps its actual timestamp.
 
 Weather images and animated effects are independent. Each weather state can use an imported PNG, JPG or WebP (up to 10 MB and 4096 pixels per dimension), copied without modifying the original. The importer checks existence, format and dimensions before decoding. Image fit, effects and reduced motion apply immediately to the widget, overview and previews.
 Sunny and cloudy scenes have subtle ambient motion. Animation pauses for hidden scenes, static previews, offline/unknown states, and whenever effects are disabled or reduced motion is enabled.
