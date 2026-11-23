@@ -281,3 +281,42 @@ def test_diagnostic_table_shows_samples_and_excludes_failed_latency(tmp_path):
     panel.close()
     widget.hide()
     app.processEvents()
+
+
+def test_startup_checkbox_reflects_registry_and_reverts_failed_change(tmp_path, monkeypatch):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    settings.setValue("startup", True)  # obsolete preference must not override Windows
+    registry = {"command": None, "fail": False}
+    command = '"C:\\NetworkWeather\\NetworkWeather.exe"'
+
+    monkeypatch.setattr("network_weather.desktop.read_startup_command",
+                        lambda: registry["command"])
+    monkeypatch.setattr("network_weather.desktop.startup_command",
+                        lambda *_args, **_kwargs: command)
+
+    def update(enabled, value):
+        if registry["fail"]:
+            raise OSError("Access denied")
+        registry["command"] = value if enabled else None
+
+    monkeypatch.setattr("network_weather.desktop.set_startup_enabled", update)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *_args: None)
+    widget = WeatherWidget(settings)
+    panel = ExpandedPanel(settings, widget)
+    assert not panel.startup_checkbox.isChecked()
+    panel.startup_checkbox.setChecked(True)
+    assert registry["command"] == command
+    assert panel.startup_checkbox.isChecked()
+    registry["command"] = '"C:\\OldNetworkWeather\\NetworkWeather.exe"'
+    panel._refresh_startup_state()
+    assert panel.startup_checkbox.isChecked()
+    assert "otra instalación" in panel.startup_status.text()
+    panel.startup_checkbox.setChecked(False)
+    assert registry["command"] is None
+    registry["fail"] = True
+    panel.startup_checkbox.setChecked(True)
+    assert not panel.startup_checkbox.isChecked()
+    panel.close()
+    widget.hide()
+    app.processEvents()

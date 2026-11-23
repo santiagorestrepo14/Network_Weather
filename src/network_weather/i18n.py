@@ -168,6 +168,10 @@ EN = {
     "Destinos HTTPS (separados por comas)": "HTTPS targets (comma-separated)",
     "Guardar mediciones": "Save probe settings",
     "Iniciar con Windows": "Start with Windows",
+    "La ruta actual es demasiado larga para el inicio de Windows.":
+        "The current path is too long for Windows startup.",
+    "La ruta registrada corresponde a otra instalación. Desactiva y activa para actualizarla.":
+        "The registered path points to another installation. Turn this off and on to update it.",
     "Apariencia → Climas": "Appearance → Weather",
     "Seleccionar imagen…": "Choose image…",
     "Original": "Reset",

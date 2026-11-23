@@ -83,6 +83,11 @@ from network_weather.models import MeasurementRound, ProbeKind
 from network_weather.monitor import Monitor
 from network_weather.weather import Classification, Weather
 from network_weather.window_placement import visible_position
+from network_weather.windows_startup import (
+    read_startup_command,
+    set_startup_enabled,
+    startup_command,
+)
 
 COLORS = {
     Weather.SUNNY: ("#ffbf68", "#6d4ead"),
@@ -1011,10 +1016,14 @@ class ExpandedPanel(QMainWindow):
         save_probes = QPushButton(self.t("Guardar mediciones"))
         save_probes.clicked.connect(self._save_probe_settings)
         layout.addWidget(save_probes)
-        startup = QCheckBox(self.t("Iniciar con Windows"))
-        startup.setChecked(self.settings.value("startup", False, type=bool))
-        startup.toggled.connect(self._set_startup)
-        layout.addWidget(startup)
+        self.startup_checkbox = QCheckBox(self.t("Iniciar con Windows"))
+        self.startup_status = QLabel("")
+        self.startup_status.setWordWrap(True)
+        self.startup_status.setStyleSheet("color:#b9c4ed;font-size:11px")
+        self._refresh_startup_state()
+        self.startup_checkbox.toggled.connect(self._set_startup)
+        layout.addWidget(self.startup_checkbox)
+        layout.addWidget(self.startup_status)
         layout.addWidget(QLabel(self.t("Apariencia → Climas")))
         grid = QGridLayout()
         for row, weather in enumerate(Weather):
@@ -1062,27 +1071,38 @@ class ExpandedPanel(QMainWindow):
         QMessageBox.information(self, self.t("Guardado"),
                                 self.t("Las nuevas sondas se usarán al reiniciar Network Weather."))
 
-    def _set_startup(self, enabled: bool) -> None:
+    def _refresh_startup_state(self) -> None:
         if sys.platform != "win32":
-            QMessageBox.warning(self, self.t("No disponible"), self.t("Esta opción requiere Windows."))
+            self.startup_checkbox.setEnabled(False)
+            self.startup_status.setText(self.t("Esta opción requiere Windows."))
             return
-        import winreg
-
-        key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
         try:
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE) as key:
-                if enabled:
-                    command = f'"{sys.executable}"'
-                    if not getattr(sys, "frozen", False):
-                        command += " -m network_weather.desktop"
-                    winreg.SetValueEx(key, "NetworkWeather", 0, winreg.REG_SZ, command)
-                else:
-                    try:
-                        winreg.DeleteValue(key, "NetworkWeather")
-                    except FileNotFoundError:
-                        pass
-            self.settings.setValue("startup", enabled)
+            registered = read_startup_command()
         except OSError as exc:
+            self.startup_checkbox.setEnabled(False)
+            self.startup_status.setText(str(exc))
+            return
+        try:
+            expected = startup_command(sys.executable, frozen=getattr(sys, "frozen", False))
+        except ValueError:
+            expected = None
+        self.startup_checkbox.blockSignals(True)
+        self.startup_checkbox.setChecked(registered is not None)
+        self.startup_checkbox.blockSignals(False)
+        self.startup_status.setText(
+            self.t("La ruta actual es demasiado larga para el inicio de Windows.")
+            if expected is None else
+            self.t("La ruta registrada corresponde a otra instalación. Desactiva y activa para actualizarla.")
+            if registered and registered != expected else "")
+
+    def _set_startup(self, enabled: bool) -> None:
+        try:
+            command = (startup_command(sys.executable, frozen=getattr(sys, "frozen", False))
+                       if enabled else None)
+            set_startup_enabled(enabled, command)
+            self._refresh_startup_state()
+        except (OSError, ValueError) as exc:
+            self._refresh_startup_state()
             QMessageBox.warning(self, self.t("No se pudo configurar"), str(exc))
 
     def _choose_image(self, weather: Weather) -> None:
