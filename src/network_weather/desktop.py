@@ -129,6 +129,37 @@ def icon() -> QIcon:
     return QIcon(pixmap)
 
 
+def control_icon(kind: str, color: str = "#c9d3ff") -> QIcon:
+    """Small vector-like window controls without platform-dependent glyphs."""
+    pixmap = QPixmap(48, 48)
+    pixmap.setDevicePixelRatio(2)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.scale(2, 2)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    pen = QPen(QColor(color), 1.8)
+    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    painter.setPen(pen)
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    if kind == "pin":
+        painter.setBrush(QColor(color))
+        painter.drawRoundedRect(QRectF(8, 4, 8, 5), 1, 1)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawLine(7, 11, 17, 11)
+        painter.drawLine(12, 11, 12, 20)
+    elif kind == "panel":
+        painter.drawRoundedRect(QRectF(3.5, 3.5, 17, 17), 2, 2)
+        painter.drawRoundedRect(QRectF(7, 7, 10, 10), 1.5, 1.5)
+    elif kind == "hide":
+        painter.drawLine(5, 12, 19, 12)
+    else:
+        painter.end()
+        raise ValueError(f"Unsupported control icon: {kind}")
+    painter.end()
+    return QIcon(pixmap)
+
+
 class WeatherScene(QWidget):
     """Procedural, redistributable scene with independent optional image/effects."""
 
@@ -570,24 +601,32 @@ class WeatherWidget(QWidget):
         app_icon.setPixmap(icon().pixmap(30, 30))
         title = QLabel("Network Weather")
         title.setStyleSheet("font-size:16px;font-weight:600")
-        self.pin_button = QPushButton("📌")
+        self.pin_button = QPushButton()
         self.pin_button.setToolTip(self.t("Fijar encima de otras ventanas"))
+        self.pin_button.setAccessibleName(self.pin_button.toolTip())
+        self.pin_button.setIconSize(QSize(22, 22))
         self.pin_button.setFixedWidth(38)
         self.pin_button.clicked.connect(self.toggle_pin)
-        panel_button = QPushButton("▣")
-        panel_button.setToolTip(self.t("Abrir panel"))
-        panel_button.setFixedWidth(38)
-        panel_button.clicked.connect(self.open_panel.emit)
-        hide_button = QPushButton("−")
-        hide_button.setToolTip(self.t("Ocultar en la bandeja"))
-        hide_button.setFixedWidth(38)
-        hide_button.clicked.connect(self.hide_requested.emit)
+        self.panel_button = QPushButton()
+        self.panel_button.setIcon(control_icon("panel"))
+        self.panel_button.setIconSize(QSize(22, 22))
+        self.panel_button.setToolTip(self.t("Abrir panel"))
+        self.panel_button.setAccessibleName(self.panel_button.toolTip())
+        self.panel_button.setFixedWidth(38)
+        self.panel_button.clicked.connect(self.open_panel.emit)
+        self.hide_button = QPushButton()
+        self.hide_button.setIcon(control_icon("hide"))
+        self.hide_button.setIconSize(QSize(22, 22))
+        self.hide_button.setToolTip(self.t("Ocultar en la bandeja"))
+        self.hide_button.setAccessibleName(self.hide_button.toolTip())
+        self.hide_button.setFixedWidth(38)
+        self.hide_button.clicked.connect(self.hide_requested.emit)
         header.addWidget(app_icon)
         header.addWidget(title)
         header.addStretch()
         header.addWidget(self.pin_button)
-        header.addWidget(panel_button)
-        header.addWidget(hide_button)
+        header.addWidget(self.panel_button)
+        header.addWidget(self.hide_button)
         layout.addLayout(header)
         hero = QWidget()
         hero.setMinimumHeight(215)
@@ -688,7 +727,13 @@ class WeatherWidget(QWidget):
         if pinned:
             flags |= Qt.WindowType.WindowStaysOnTopHint
         self.setWindowFlags(flags)
-        self.pin_button.setStyleSheet("color:#e99bff" if pinned else "")
+        self.pin_button.setIcon(control_icon("pin", "#f0a9ff" if pinned else "#c9d3ff"))
+        self.pin_button.setStyleSheet(
+            "background:#5a3a85;border:1px solid #bd82ef;border-radius:9px" if pinned else "")
+        self.pin_button.setToolTip(self.t(
+            "Dejar de fijar encima de otras ventanas" if pinned
+            else "Fijar encima de otras ventanas"))
+        self.pin_button.setAccessibleName(self.pin_button.toolTip())
 
     def toggle_pin(self) -> None:
         self.settings.setValue("pinned", not self.settings.value("pinned", False, type=bool))

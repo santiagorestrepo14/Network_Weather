@@ -513,6 +513,28 @@ def test_widget_resize_grip_and_saved_size_survive_restart(tmp_path):
     reopened.hide()
 
 
+def test_widget_header_controls_have_icons_and_pin_state_is_clear(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    widget = WeatherWidget(settings)
+    for button in (widget.pin_button, widget.panel_button, widget.hide_button):
+        assert button.text() == ""
+        assert not button.icon().isNull()
+        assert button.accessibleName() == button.toolTip()
+    assert widget.pin_button.toolTip() == "Fijar encima de otras ventanas"
+    unpinned_icon = widget.pin_button.icon().pixmap(22, 22).toImage()
+
+    widget.toggle_pin()
+    app.processEvents()
+    assert settings.value("pinned", type=bool)
+    assert widget.pin_button.toolTip() == "Dejar de fijar encima de otras ventanas"
+    assert widget.pin_button.icon().pixmap(22, 22).toImage() != unpinned_icon
+
+    widget.toggle_pin()
+    assert not settings.value("pinned", type=bool)
+    widget.hide()
+
+
 def test_overview_cards_use_observed_probe_results(tmp_path):
     app = QApplication.instance() or QApplication([])
     settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
