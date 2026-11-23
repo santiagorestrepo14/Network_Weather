@@ -66,7 +66,7 @@ from PySide6.QtWidgets import (
 )
 
 from network_weather.compact_history import CompactPoint, compact_points, visible_segments
-from network_weather.config import ProbeConfig, default_data_dir
+from network_weather.config import ProbeConfig, default_data_dir, is_ip_literal
 from network_weather.diagnostics import DiagnosticSummary, recent_diagnostics
 from network_weather.history import HistoryStore
 from network_weather.history_chart import PALETTE, HistoryChart, weather_segments
@@ -590,7 +590,8 @@ class WeatherWidget(QWidget):
         self.weather_label.setText(weather_name(result.weather, self.language))
         self.description.setText(weather_description(result.weather, self.language))
         self.monitoring.setText(self.t("●  Monitoreo activo · datos reales"))
-        tcp = [p for p in round_.probes if p.kind == ProbeKind.TCP]
+        tcp = [p for p in round_.probes if p.kind == ProbeKind.TCP
+               and not is_ip_literal(p.destination)]
         dns = [p for p in round_.probes if p.kind == ProbeKind.DNS]
         times = [p.duration_ms for p in tcp if p.ok and p.duration_ms is not None]
         self.cards["latency"].value.setText(f"{sum(times)/len(times):.0f} ms" if times else "—")
@@ -1007,12 +1008,16 @@ class ExpandedPanel(QMainWindow):
             self.settings.value("destinations", "example.com, www.wikipedia.org")
         )
         self.destinations_input.setPlaceholderText("example.com, www.wikipedia.org")
+        self.direct_ip_input = QLineEdit(self.settings.value("direct_ip_target", ""))
+        self.direct_ip_input.setPlaceholderText(self.t("Opcional: IP pública con TCP/443"))
         layout.addWidget(QLabel(self.t("Intervalo")))
         layout.addWidget(self.interval_input)
         layout.addWidget(QLabel(self.t("Retención del historial")))
         layout.addWidget(self.retention_input)
         layout.addWidget(QLabel(self.t("Destinos HTTPS (separados por comas)")))
         layout.addWidget(self.destinations_input)
+        layout.addWidget(QLabel(self.t("Prueba TCP directa sin DNS")))
+        layout.addWidget(self.direct_ip_input)
         save_probes = QPushButton(self.t("Guardar mediciones"))
         save_probes.clicked.connect(self._save_probe_settings)
         layout.addWidget(save_probes)
@@ -1060,13 +1065,15 @@ class ExpandedPanel(QMainWindow):
         hosts = tuple(host.strip() for host in self.destinations_input.text().split(","))
         try:
             ProbeConfig(destinations=hosts, interval_seconds=self.interval_input.value(),
-                        retention_days=self.retention_input.value())
+                        retention_days=self.retention_input.value(),
+                        direct_ip_target=self.direct_ip_input.text().strip() or None)
         except ValueError as exc:
             QMessageBox.warning(self, self.t("Destinos no válidos"), str(exc))
             return
         self.settings.setValue("destinations", ", ".join(hosts))
         self.settings.setValue("interval", self.interval_input.value())
         self.settings.setValue("retention_days", self.retention_input.value())
+        self.settings.setValue("direct_ip_target", self.direct_ip_input.text().strip())
         self.settings.sync()
         QMessageBox.information(self, self.t("Guardado"),
                                 self.t("Las nuevas sondas se usarán al reiniciar Network Weather."))
@@ -1168,7 +1175,8 @@ class ExpandedPanel(QMainWindow):
         self.evidence_label.setText("\n".join(
             evidence_name(e.code, e.detail, self.language) for e in result.evidence)
             or self.t("Sin evidencias concluyentes todavía."))
-        tcp = [p for p in round_.probes if p.kind == ProbeKind.TCP]
+        tcp = [p for p in round_.probes if p.kind == ProbeKind.TCP
+               and not is_ip_literal(p.destination)]
         dns = [p for p in round_.probes if p.kind == ProbeKind.DNS]
         external = [p for p in round_.probes if p.kind in (ProbeKind.TCP, ProbeKind.HTTPS)]
         gateway = [p for p in round_.probes if p.kind == ProbeKind.ICMP]
@@ -1289,6 +1297,7 @@ class DesktopController(QObject):
                     destinations=configured,
                     interval_seconds=self.settings.value("interval", 30, type=int),
                     retention_days=self.settings.value("retention_days", 30, type=int),
+                    direct_ip_target=self.settings.value("direct_ip_target", "") or None,
                 )
             except ValueError:
                 config = ProbeConfig()

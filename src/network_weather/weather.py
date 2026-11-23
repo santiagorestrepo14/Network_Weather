@@ -69,6 +69,10 @@ def _confirmed_external_outage(
     """
     if len(rounds) < 2:
         return False
+    if any(p.kind in (ProbeKind.TCP, ProbeKind.HTTPS) and p.ok
+           and p.destination not in destinations
+           for round_ in rounds[-2:] for p in round_.probes):
+        return False
     failed = {ProbeStatus.TIMEOUT, ProbeStatus.TCP_ERROR}
     for round_ in rounds[-2:]:
         for host in destinations:
@@ -98,14 +102,16 @@ def classify(
         )
     probes = [probe for round_ in recent for probe in round_.probes]
     dns = [p for p in probes if p.kind == ProbeKind.DNS]
-    tcp = [p for p in probes if p.kind == ProbeKind.TCP]
-    https = [p for p in probes if p.kind == ProbeKind.HTTPS]
-    if not dns or not tcp or not https:
+    if not dns:
         return Classification(
             Weather.UNKNOWN, (), 0.2, 0.0,
             (Evidence("missing_protocol", "DNS, TCP and HTTPS evidence required"),), len(recent),
         )
     destinations = {p.destination for p in dns}
+    tcp = [p for p in probes if p.kind == ProbeKind.TCP and p.destination in destinations]
+    direct_tcp = [p for p in probes if p.kind == ProbeKind.TCP
+                  and p.destination not in destinations]
+    https = [p for p in probes if p.kind == ProbeKind.HTTPS]
     if len(destinations) < 2:
         return Classification(
             Weather.UNKNOWN, (), 0.3, 0.0,
@@ -114,6 +120,29 @@ def classify(
         )
 
     dns_rate = _rate(dns) or 0.0
+    direct_success_rounds = sum(
+        any(p.kind == ProbeKind.TCP and p.destination not in destinations and p.ok
+            for p in round_.probes)
+        for round_ in recent
+    )
+    dns_failed_rounds = sum(
+        any(p.kind == ProbeKind.DNS and not p.ok for p in round_.probes)
+        for round_ in recent
+    )
+    if not tcp or not https:
+        if dns_rate >= 0.4 and dns_failed_rounds >= 2 and direct_success_rounds >= 2:
+            return Classification(
+                Weather.FOGGY, (), 0.75, 0.5,
+                (Evidence("dns_failures", "DNS resolution failed for several probes",
+                          dns_rate, 0.4),
+                 Evidence("direct_ip_tcp_replied",
+                          "A direct TCP connection to a configured IP succeeded")),
+                len(recent),
+            )
+        return Classification(
+            Weather.UNKNOWN, (), 0.2, 0.0,
+            (Evidence("missing_protocol", "DNS, TCP and HTTPS evidence required"),), len(recent),
+        )
     tcp_rate = _rate(tcp) or 0.0
     https_rate = _rate(https) or 0.0
     tcp_by_destination: dict[str, list[float]] = {}
@@ -132,6 +161,9 @@ def classify(
                 "gateway_echo_unanswered",
                 "Gateway did not answer ICMP; it may filter echo requests",
             ))
+    if any(p.ok for p in direct_tcp):
+        evidence.append(Evidence(
+            "direct_ip_tcp_replied", "A direct TCP connection to a configured IP succeeded"))
 
     # A failed destination or a cached DNS answer cannot establish an outage.
     if _confirmed_external_outage(recent, destinations):
@@ -151,6 +183,7 @@ def classify(
         network_rate = len(network_https) / len(https)
         failed_rounds = sum(
             any(p.kind in (ProbeKind.TCP, ProbeKind.HTTPS)
+                and p.destination in destinations
                 and p.status.value in {"timeout", "tcp_error", "http_error"}
                 for p in round_.probes)
             for round_ in recent

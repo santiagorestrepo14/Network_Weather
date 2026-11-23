@@ -12,6 +12,7 @@ from network_weather.monitor import Monitor
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="network-weather")
     parser.add_argument("--destination", action="append", dest="destinations")
+    parser.add_argument("--direct-ip", help="Optional numeric public IP for DNS-independent TCP/443")
     parser.add_argument("--interval", type=float, default=30)
     parser.add_argument("--timeout", type=float, default=3)
     parser.add_argument("--once", action="store_true", help="Run one round and exit")
@@ -22,6 +23,7 @@ def main(argv: list[str] | None = None) -> int:
             destinations=tuple(args.destinations) if args.destinations else ProbeConfig().destinations,
             interval_seconds=args.interval,
             timeout_seconds=args.timeout,
+            direct_ip_target=args.direct_ip,
         )
     except ValueError as exc:
         parser.error(str(exc))

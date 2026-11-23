@@ -3,7 +3,7 @@
 from network_weather.adapters import get_adapters
 from network_weather.config import ProbeConfig
 from network_weather.models import MeasurementRound, utc_now
-from network_weather.probes import probe_destination
+from network_weather.probes import probe_destination, probe_direct_ip
 from network_weather.wifi import WifiCache
 from network_weather.windows_network import GatewayCache, ping_gateway
 
@@ -19,6 +19,8 @@ def collect_once(config: ProbeConfig) -> MeasurementRound:
     results = []
     for host in config.destinations:
         results.extend(probe_destination(host, config.timeout_seconds, config.https_path))
+    if config.direct_ip_target:
+        results.append(probe_direct_ip(config.direct_ip_target, config.timeout_seconds))
     try:
         adapters = get_adapters()
     except OSError:

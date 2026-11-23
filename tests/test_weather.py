@@ -175,3 +175,41 @@ def test_configured_slow_interval_is_not_mistaken_for_sleep():
     engine.add(first)
     assert not engine.observation_gap(later)
     assert engine.add(later).sample_rounds == 2
+
+
+def test_dns_failure_with_repeated_direct_ip_success_is_foggy():
+    def blocked_dns(index, direct_ok):
+        at = BASE + timedelta(seconds=index * 30)
+        probes = [
+            ProbeResult(at, host, ProbeKind.DNS, ProbeStatus.DNS_ERROR, None)
+            for host in HOSTS
+        ]
+        probes.append(ProbeResult(
+            at, "1.1.1.1", ProbeKind.TCP,
+            ProbeStatus.SUCCESS if direct_ok else ProbeStatus.TIMEOUT,
+            15.0 if direct_ok else None,
+        ))
+        return MeasurementRound(at, at, tuple(probes))
+
+    rounds = [blocked_dns(index, True) for index in range(3)]
+    result = classify(rounds)
+    assert result.weather == Weather.FOGGY
+    assert {e.code for e in result.evidence} == {"dns_failures", "direct_ip_tcp_replied"}
+    assert classify([blocked_dns(index, False) for index in range(3)]).weather == Weather.UNKNOWN
+    engine = WeatherEngine()
+    for index in range(4):
+        result = engine.add(blocked_dns(index, True))
+    assert result.weather == Weather.FOGGY
+
+
+def test_direct_ip_success_vetoes_offline_even_when_name_targets_fail():
+    rounds = [round_at(0)]
+    for index in (1, 2):
+        failed = round_at(index, tcp_fail=True, https_fail=True)
+        direct = ProbeResult(failed.started_at, "1.1.1.1", ProbeKind.TCP,
+                             ProbeStatus.SUCCESS, 14.0)
+        rounds.append(MeasurementRound(failed.started_at, failed.finished_at,
+                                       (*failed.probes, direct)))
+    result = classify(rounds)
+    assert result.weather != Weather.OFFLINE
+    assert any(e.code == "direct_ip_tcp_replied" for e in result.evidence)

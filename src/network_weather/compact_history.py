@@ -7,6 +7,7 @@ from datetime import datetime
 from itertools import pairwise
 from statistics import mean, median
 
+from network_weather.config import is_ip_literal
 from network_weather.models import MeasurementRound, ProbeKind
 
 
@@ -37,7 +38,8 @@ def compact_points(rounds: list[MeasurementRound]) -> tuple[CompactPoint, ...]:
             previous = {}
         per_target: dict[str, list[float]] = {}
         for probe in round_.probes:
-            if probe.kind == ProbeKind.TCP and probe.ok and probe.duration_ms is not None:
+            if (probe.kind == ProbeKind.TCP and not is_ip_literal(probe.destination)
+                    and probe.ok and probe.duration_ms is not None):
                 per_target.setdefault(probe.destination, []).append(probe.duration_ms)
         current = {host: median(values) for host, values in per_target.items()}
         differences = [abs(value - previous[host]) for host, value in current.items()

@@ -51,3 +51,20 @@ def test_ipv6_socket_identifies_adapter_and_gateway(monkeypatch):
     assert round_.probes[-1].kind == ProbeKind.ICMP
     assert round_.wifi[0].signal_quality_percent == 70
 
+
+def test_optional_direct_ip_is_a_separate_observed_probe(monkeypatch):
+    from network_weather import collector
+
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    monkeypatch.setattr(collector, "probe_destination", lambda host, *_args: (
+        ProbeResult(at, host, ProbeKind.DNS, ProbeStatus.DNS_ERROR, None),))
+    monkeypatch.setattr(collector, "probe_direct_ip", lambda address, _timeout: ProbeResult(
+        at, address, ProbeKind.TCP, ProbeStatus.SUCCESS, 12.0))
+    monkeypatch.setattr(collector, "get_adapters", lambda: ())
+    monkeypatch.setattr(collector._gateways, "for_adapter", lambda _name: None)
+    monkeypatch.setattr(collector._wifi, "current", lambda: ())
+    round_ = collector.collect_once(ProbeConfig(direct_ip_target="1.1.1.1"))
+    assert len(round_.probes) == 3
+    assert [p.kind for p in round_.probes] == [ProbeKind.DNS, ProbeKind.DNS, ProbeKind.TCP]
+    assert round_.probes[-1].destination == "1.1.1.1"
+

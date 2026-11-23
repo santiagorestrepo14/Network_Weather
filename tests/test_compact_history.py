@@ -46,3 +46,12 @@ def test_failure_and_long_pause_break_variation_and_visible_line():
 def test_unknown_metric_is_rejected():
     with pytest.raises(ValueError):
         CompactPoint(START, 20, None).value("unknown")
+
+
+def test_optional_direct_ip_does_not_change_hostname_tcp_chart():
+    at = START
+    round_ = MeasurementRound(at, at, (
+        ProbeResult(at, "example.com", ProbeKind.TCP, ProbeStatus.SUCCESS, 20.0),
+        ProbeResult(at, "1.1.1.1", ProbeKind.TCP, ProbeStatus.SUCCESS, 500.0),
+    ))
+    assert compact_points([round_])[0].latency_ms == 20.0

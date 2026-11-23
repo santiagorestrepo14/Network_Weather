@@ -2,7 +2,16 @@
 
 import re
 from dataclasses import dataclass
+from ipaddress import ip_address
 from pathlib import Path
+
+
+def is_ip_literal(value: str) -> bool:
+    try:
+        ip_address(value)
+    except ValueError:
+        return False
+    return True
 
 
 @dataclass(frozen=True, slots=True)
@@ -12,6 +21,7 @@ class ProbeConfig:
     timeout_seconds: float = 3.0
     retention_days: int = 30
     https_path: str = "/"
+    direct_ip_target: str | None = None
 
     def __post_init__(self) -> None:
         if not 1 <= len(self.destinations) <= 8:
@@ -24,6 +34,15 @@ class ProbeConfig:
             if any(not label or len(label) > 63 or label.startswith("-") or label.endswith("-")
                    for label in host.rstrip(".").split(".")):
                 raise ValueError(f"Invalid destination: {host!r}")
+            if re.fullmatch(r"[0-9.]+", host):
+                raise ValueError("IP literals belong in direct_ip_target, not DNS destinations")
+        if self.direct_ip_target is not None:
+            try:
+                address = ip_address(self.direct_ip_target)
+            except ValueError as exc:
+                raise ValueError("Direct IP target must be a numeric IP address") from exc
+            if not address.is_global:
+                raise ValueError("Direct IP target must be globally reachable")
         if not 5 <= self.interval_seconds <= 3600:
             raise ValueError("Interval must be between 5 and 3600 seconds")
         if not 0.2 <= self.timeout_seconds <= 30:

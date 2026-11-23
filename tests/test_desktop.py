@@ -320,3 +320,47 @@ def test_startup_checkbox_reflects_registry_and_reverts_failed_change(tmp_path, 
     panel.close()
     widget.hide()
     app.processEvents()
+
+
+def test_optional_direct_ip_setting_is_validated_and_persisted(tmp_path, monkeypatch):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    widget = WeatherWidget(settings)
+    panel = ExpandedPanel(settings, widget)
+    messages = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *_args: None)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *_args: messages.append("invalid"))
+    panel.direct_ip_input.setText("192.168.1.1")
+    panel._save_probe_settings()
+    assert messages == ["invalid"]
+    assert settings.value("direct_ip_target") is None
+    panel.direct_ip_input.setText("1.1.1.1")
+    panel._save_probe_settings()
+    assert settings.value("direct_ip_target") == "1.1.1.1"
+    panel.close()
+    widget.hide()
+    app.processEvents()
+
+
+def test_direct_ip_failure_does_not_inflate_hostname_cards(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    widget = WeatherWidget(settings)
+    panel = ExpandedPanel(settings, widget)
+    at = datetime(2026, 11, 22, tzinfo=UTC)
+    probes = (
+        ProbeResult(at, "example.com", ProbeKind.DNS, ProbeStatus.SUCCESS, 3.0),
+        ProbeResult(at, "example.com", ProbeKind.TCP, ProbeStatus.SUCCESS, 20.0),
+        ProbeResult(at, "example.com", ProbeKind.HTTPS, ProbeStatus.SUCCESS, 35.0),
+        ProbeResult(at, "1.1.1.1", ProbeKind.TCP, ProbeStatus.TIMEOUT, None),
+    )
+    round_ = MeasurementRound(at, at, probes)
+    result = Classification(Weather.UNKNOWN, (), 0.5, 0, (), 1)
+    widget.update_measurement(round_, result)
+    panel.update_measurement(round_, result)
+    assert widget.cards["loss"].value.text() == "0%"
+    assert panel.overview_cards["failures"].value.text() == "0%"
+    assert panel.overview_cards["external"].value.text() == "Confirmada"
+    panel.close()
+    widget.hide()
+    app.processEvents()

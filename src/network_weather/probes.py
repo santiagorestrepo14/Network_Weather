@@ -5,6 +5,7 @@ from __future__ import annotations
 import socket
 import ssl
 import time
+from ipaddress import ip_address
 
 from network_weather.models import ProbeKind, ProbeResult, ProbeStatus, utc_now
 
@@ -140,3 +141,15 @@ def probe_destination(host: str, timeout: float, path: str = "/") -> tuple[Probe
     # retained by the resolver but are not silently counted as successful probes.
     info = infos[0]
     return dns, probe_tcp(host, info, timeout), probe_https(host, info, timeout, path)
+
+
+def probe_direct_ip(address: str, timeout: float) -> ProbeResult:
+    """Check an explicitly configured numeric IP on TCP/443 without DNS."""
+    parsed = ip_address(address)
+    if parsed.version == 6:
+        info: AddressInfo = (socket.AF_INET6, socket.SOCK_STREAM, socket.IPPROTO_TCP, "",
+                             (str(parsed), 443, 0, 0))
+    else:
+        info = (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "",
+                (str(parsed), 443))
+    return probe_tcp(str(parsed), info, timeout)
