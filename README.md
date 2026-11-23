@@ -3,6 +3,7 @@
 Windows desktop network weather monitor. **Current state: development snapshot.** This repository provides real DNS, TCP and HTTPS probes, adapter snapshots, weather rules, local SQLite history, incident tracking, a CLI, a Windows widget, tray integration, expanded panel and eight procedural scenes. Visual polish and several diagnostics are still pending.
 
 For the controls, settings and weather meanings, see the [English user guide](docs/USER_GUIDE.md) or [Spanish user guide](docs/USER_GUIDE_ES.md).
+The [Windows release acceptance checklist](docs/RELEASE_CHECKLIST.md) records the interactive checks still needed before a final release.
 
 ## Setup (PowerShell, Python 3.12+)
 

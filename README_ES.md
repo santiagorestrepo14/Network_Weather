@@ -3,6 +3,7 @@
 Aplicación de escritorio para Windows que representa el estado de Internet como clima. **Estado actual: versión de desarrollo.** Contiene sondas, reglas meteorológicas, historial SQLite, CLI, widget, bandeja, panel expandido y ocho escenas procedurales. Todavía faltan funciones y pulido visual para la primera publicación. Las capturas de referencia son maquetas: sus cifras no son datos de esta aplicación.
 
 La [guía de uso en español](docs/USER_GUIDE_ES.md) reúne los controles, la configuración y el significado de los climas. También está disponible [en inglés](docs/USER_GUIDE.md).
+La [lista de validación en Windows](docs/RELEASE_CHECKLIST.md) indica las comprobaciones interactivas pendientes antes de publicar una versión final.
 
 ## Arquitectura
 
