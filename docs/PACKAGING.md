@@ -18,5 +18,7 @@ An isolated `pythonw.exe -m network_weather.desktop_launcher` run wrote a real r
 The v25 Windows preview also started in real mode with isolated app data and saved one measurement round. UI history queries now use SQLite read-only connections; monitor initialization remains responsible for schema setup and migration.
 With a five-second configured interval, the same preview remained running for 42 seconds and saved six real rounds in an isolated database. Its working set at the end of that local check was about 133 MiB; this is one observation, not a long-duration performance benchmark.
 The v26 preview passed a two-process check: the second `--demo` launch exited with code 0 while the first remained running. A fresh launch also succeeded after the first process was forcibly stopped. This covers duplicate launch and stale-lock recovery on the local Windows machine.
+The v27 preview repeated the duplicate-launch check after adding explicit lock release and startup error reporting; the first copy remained running and the second exited with code 0.
+It also remained running in real mode for an isolated 18-second smoke check and saved one measurement round.
 
 Desde PowerShell, ejecuta los mismos comandos en Windows. El empaquetado local terminó correctamente, pero todavía necesita validación en una máquina limpia antes de publicar un ejecutable.

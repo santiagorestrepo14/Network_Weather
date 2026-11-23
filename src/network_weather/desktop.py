@@ -1551,9 +1551,20 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationName("Network Weather")
     app.setQuitOnLastWindowClosed(False)
     data_dir = default_data_dir()
-    data_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        data_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        QMessageBox.critical(None, "Network Weather", str(exc))
+        return 1
     lock = QLockFile(str(data_dir / "desktop.lock"))
     if not lock.tryLock(0):
+        if lock.error() != QLockFile.LockError.LockFailedError:
+            settings_path = data_dir / "settings.ini"
+            language = normalize_language(QSettings(str(settings_path),
+                                                    QSettings.Format.IniFormat).value("language", "es"))
+            QMessageBox.critical(None, "Network Weather", f"{translate(
+                'No se pudo crear la instancia única.', language)} ({lock.error().name})")
+            return 1
         server_name = _instance_server_name(data_dir)
         other = QLocalSocket(app)
         for _ in range(10):
@@ -1574,13 +1585,17 @@ def main(argv: list[str] | None = None) -> int:
                                                     QSettings.Format.IniFormat).value("language", "es"))
             QMessageBox.critical(None, "Network Weather", translate(
                 "No se pudo crear la instancia única.", language))
+            lock.unlock()
             return 1
     controller = DesktopController(app, demo=args.demo)
     instance.newConnection.connect(lambda: _restore_existing(instance, controller))
     # Keep the controller and its QThread alive for the duration of the event loop.
     app.controller = controller
     app.instance_server = instance
-    return app.exec()
+    try:
+        return app.exec()
+    finally:
+        lock.unlock()
 
 
 def _instance_server_name(data_dir: Path) -> str:
