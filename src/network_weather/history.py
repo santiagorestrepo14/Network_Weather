@@ -45,6 +45,7 @@ class HistorySeries:
     destinations: tuple[str, ...]
     gap_threshold_seconds: float
     truncated: bool
+    typical_interval_seconds: float = 0.0
 
 
 class HistoryStore:
@@ -220,7 +221,7 @@ class HistoryStore:
             for index, count in enumerate(counts) if count
         )
         return HistorySeries(start, end, points, bins, destinations,
-                             gap_threshold, truncated)
+                             gap_threshold, truncated, typical)
 
     def recent_rounds(self, limit: int = 60) -> list[MeasurementRound]:
         rows = self.connection.execute(

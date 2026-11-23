@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
@@ -21,13 +21,13 @@ PALETTE = {
 
 
 def weather_segments(series: HistorySeries) -> list[tuple[datetime, datetime, Weather]]:
-    """A state ends at the next observation or at the gap threshold."""
+    """Only carry a state through its expected observation interval."""
     points = series.weather
     segments = []
+    hold_seconds = min(series.gap_threshold_seconds,
+                       max(1.0, series.typical_interval_seconds * 1.5))
     for index, point in enumerate(points):
-        end = min(series.end, datetime.fromtimestamp(
-            point.at.timestamp() + series.gap_threshold_seconds, point.at.tzinfo,
-        ))
+        end = min(series.end, point.at + timedelta(seconds=hold_seconds))
         if index + 1 < len(points):
             end = min(end, points[index + 1].at)
         if end > point.at:

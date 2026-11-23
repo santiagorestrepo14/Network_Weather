@@ -128,6 +128,23 @@ def test_range_keeps_weather_categorical_and_filters_latency_destination(tmp_pat
         assert segments[1][1] < start + timedelta(minutes=15)
 
 
+def test_last_weather_observation_does_not_fill_a_long_unobserved_gap(tmp_path):
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    with HistoryStore(tmp_path / "gap.db") as store:
+        for seconds in (0, 30, 60, 90):
+            at = start + timedelta(seconds=seconds)
+            store.save(MeasurementRound(at, at, ()),
+                       Classification(Weather.SUNNY, (), 0.8, 0.0, (), 4))
+        series = store.history_range(start, start + timedelta(minutes=5))
+    segments = weather_segments(series)
+    assert series.typical_interval_seconds == 30
+    assert [end for _, end, _ in segments[:3]] == [
+        start + timedelta(seconds=value) for value in (30, 60, 90)
+    ]
+    assert segments[-1][1] == start + timedelta(seconds=135)
+    assert segments[-1][1] < series.end
+
+
 def test_preexisting_rounds_backfill_samples_once(tmp_path):
     path = tmp_path / "legacy.db"
     at = datetime(2026, 1, 1, tzinfo=UTC)
