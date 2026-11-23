@@ -2,7 +2,12 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from network_weather.compact_history import CompactPoint, compact_points, visible_segments
+from network_weather.compact_history import (
+    CompactPoint,
+    compact_points,
+    compact_time_labels,
+    visible_segments,
+)
 from network_weather.models import MeasurementRound, ProbeKind, ProbeResult, ProbeStatus
 
 START = datetime(2026, 11, 22, 12, 0, tzinfo=UTC)
@@ -55,3 +60,10 @@ def test_optional_direct_ip_does_not_change_hostname_tcp_chart():
         ProbeResult(at, "1.1.1.1", ProbeKind.TCP, ProbeStatus.SUCCESS, 500.0),
     ))
     assert compact_points([round_])[0].latency_ms == 20.0
+
+
+def test_nearby_chart_endpoints_show_seconds():
+    first, last = compact_time_labels(START, START + timedelta(seconds=30))
+    assert first != last
+    assert first.endswith(":00")
+    assert last.endswith(":30")

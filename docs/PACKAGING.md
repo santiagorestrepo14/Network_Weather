@@ -23,5 +23,6 @@ The v27 preview repeated the duplicate-launch check after adding explicit lock r
 It also remained running in real mode for an isolated 18-second smoke check and saved one measurement round.
 The v28 preview started with a saved 620×560 widget size, retained that preference, remained running for 18 seconds and saved one real round. A separate Qt drag check expanded both widget dimensions from the lower-left grip; the full automated suite passed with the new size persistence and initial Unknown-state descriptions.
 The Windows CI workflow now builds the PyInstaller bundle after unit tests and runs `scripts/smoke_bundle.py`. The smoke check verifies all eight scene images, demo startup, single-instance behavior and absence of synthetic measurements in the real SQLite database. It passed locally against the v28 bundle; the hosted GitHub Actions job has not run yet because this repository has not been uploaded.
+The same bundle smoke check passed locally against v29 after the compact time-label and status-color changes; the v29 ZIP integrity check found no errors.
 
 Desde PowerShell, ejecuta los mismos comandos en Windows. El empaquetado local terminó correctamente, pero todavía necesita validación en una máquina limpia antes de publicar un ejecutable.

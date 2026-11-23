@@ -35,6 +35,8 @@ The history panel offers one hour, 24-hour, 7-day, 30-day and custom ranges, wit
 
 The compact widget chart switches between **Latency** and **Variation** and remembers the choice. It shows real timestamps for the last 30 rounds, including stored rounds from before launch. Each latency point averages successful TCP samples in its round. Variation averages absolute changes for the same destinations in adjacent successful rounds; failures and long pauses break comparison. Missing samples are neither plotted nor joined.
 
+For spans under two minutes, the compact chart shows seconds so nearby observations have distinct time labels. Confirmed healthy DNS and zero observed TCP response failures appear in green. A gateway ICMP non-response stays neutral because echo may be filtered.
+
 If a saved widget position is outside all current displays, such as after unplugging a monitor, opening the widget brings it back into the visible area.
 
 **Start with Windows** is off by default. Enabling it adds a command only to the current user's `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` entry; disabling it removes that entry. The checkbox reads the actual registry state, and warns when an old installation path is registered. Source installs use `pythonw.exe` when available; the packaged app uses its own executable. See [Microsoft's Run key documentation](https://learn.microsoft.com/en-us/windows/win32/setupapi/run-and-runonce-registry-keys).

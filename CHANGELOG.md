@@ -37,5 +37,6 @@
 - Made the floating widget resizable from its lower-left corner and restored its saved size on launch.
 - Explained the initial Unknown state with measurement-round progress and candidate confirmation in Spanish and English.
 - Added a Windows CI bundle build and packaged demo smoke check for scene assets, single-instance startup and demo isolation.
+- Made nearby compact-chart timestamps distinguishable down to seconds and colored confirmed healthy DNS/TCP results green without treating unanswered gateway ICMP as a proven fault.
 
 This is a development snapshot. No release or executable has been published.

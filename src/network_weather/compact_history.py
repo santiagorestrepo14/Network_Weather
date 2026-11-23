@@ -64,6 +64,15 @@ def gap_threshold_seconds(points: tuple[CompactPoint, ...]) -> float:
     return max(120.0, 2.5 * typical)
 
 
+def compact_time_labels(first: datetime, last: datetime) -> tuple[str, str]:
+    """Keep nearby observations distinguishable on the compact chart axis."""
+    span = (last - first).total_seconds()
+    stamp_format = ("%H:%M:%S" if span < 120 else
+                    "%d/%m %H:%M" if span >= 86400 else "%H:%M")
+    return (first.astimezone().strftime(stamp_format),
+            last.astimezone().strftime(stamp_format))
+
+
 def visible_segments(
     points: tuple[CompactPoint, ...], metric: str,
 ) -> tuple[tuple[CompactPoint, CompactPoint], ...]:

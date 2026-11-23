@@ -506,6 +506,10 @@ def test_overview_cards_use_observed_probe_results(tmp_path):
     assert panel.overview_cards["dns"].value.text() == "Healthy"
     assert panel.overview_cards["gateway"].value.text() == "No reply"
     assert panel.overview_cards["external"].value.text() == "Confirmed"
+    assert "#ff9db8" in panel.overview_cards["failures"].value.styleSheet()
+    assert "#77f5bc" in panel.overview_cards["dns"].value.styleSheet()
+    assert "#e6d1ff" in panel.overview_cards["gateway"].value.styleSheet()
+    assert "#77f5bc" in panel.overview_cards["external"].value.styleSheet()
     assert panel.evidence_label.text() == "No conclusive evidence yet."
     series = HistorySeries(at - timedelta(hours=1), at, (), (), (), 120.0, False)
     panel.show_overview(series, [])
@@ -619,6 +623,8 @@ def test_direct_ip_failure_does_not_inflate_hostname_cards(tmp_path):
     widget.update_measurement(round_, result)
     panel.update_measurement(round_, result)
     assert widget.cards["loss"].value.text() == "0%"
+    assert "#77f5bc" in widget.cards["loss"].value.styleSheet()
+    assert "#77f5bc" in widget.cards["dns"].value.styleSheet()
     assert panel.overview_cards["failures"].value.text() == "0%"
     assert panel.overview_cards["external"].value.text() == "Confirmada"
     panel.close()

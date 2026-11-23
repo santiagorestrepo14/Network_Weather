@@ -69,7 +69,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from network_weather.compact_history import CompactPoint, compact_points, visible_segments
+from network_weather.compact_history import (
+    CompactPoint,
+    compact_points,
+    compact_time_labels,
+    visible_segments,
+)
 from network_weather.config import ProbeConfig, default_data_dir, is_ip_literal
 from network_weather.diagnostics import DiagnosticSummary, recent_diagnostics
 from network_weather.history import HistoryStore
@@ -410,6 +415,11 @@ class MetricCard(QFrame):
         layout.addWidget(caption)
         layout.addWidget(self.value)
 
+    def set_tone(self, tone: str, *, font_size: int = 19) -> None:
+        color = {"good": "#77f5bc", "bad": "#ff9db8", "neutral": "#e6d1ff"}[tone]
+        self.value.setStyleSheet(
+            f"color:{color};font-size:{font_size}px;font-weight:700")
+
 
 class Sparkline(QWidget):
     def __init__(self, language: str = "es") -> None:
@@ -469,11 +479,11 @@ class Sparkline(QWidget):
                     p.drawEllipse(QPoint(x(point), y(value)), 2, 2)
             p.setPen(QColor("#d3c8f4"))
             p.drawText(8, 12, f"{max(values):.0f} ms")
-        stamp_format = "%d/%m %H:%M" if (last - first).total_seconds() >= 86400 else "%H:%M"
+        first_label, last_label = compact_time_labels(first, last)
         p.setPen(QColor("#b9b0dc"))
-        p.drawText(left, self.height() - 4, first.astimezone().strftime(stamp_format))
+        p.drawText(left, self.height() - 4, first_label)
         p.drawText(QRectF(left, self.height() - 19, width, 17),
-                   Qt.AlignmentFlag.AlignRight, last.astimezone().strftime(stamp_format))
+                   Qt.AlignmentFlag.AlignRight, last_label)
         p.end()
 
 
@@ -703,8 +713,12 @@ class WeatherWidget(QWidget):
         self.cards["loss"].value.setText(
             f"{100 * sum(not p.ok for p in tcp)/len(tcp):.0f}%" if tcp else "—"
         )
+        self.cards["loss"].set_tone(
+            "good" if tcp and all(p.ok for p in tcp) else "bad" if tcp else "neutral")
         self.cards["dns"].value.setText("OK" if dns and all(p.ok for p in dns)
                                         else self.t("Error") if dns else "—")
+        self.cards["dns"].set_tone(
+            "good" if dns and all(p.ok for p in dns) else "bad" if dns else "neutral")
 
     def mousePressEvent(self, event: object) -> None:
         if event.button() == Qt.MouseButton.LeftButton and event.position().y() < 52:
@@ -1324,15 +1338,25 @@ class ExpandedPanel(QMainWindow):
             f"{sum(valid_tcp)/len(valid_tcp):.0f} ms" if valid_tcp else "—")
         self.overview_cards["failures"].value.setText(
             f"{sum(not p.ok for p in tcp)/len(tcp):.0%}" if tcp else "—")
+        self.overview_cards["failures"].set_tone(
+            "good" if tcp and all(p.ok for p in tcp) else "bad" if tcp else "neutral",
+            font_size=17)
         self.overview_cards["dns"].value.setText(
             self.t("Correcto") if dns and all(p.ok for p in dns)
             else self.t("Con fallos") if dns else "—")
+        self.overview_cards["dns"].set_tone(
+            "good" if dns and all(p.ok for p in dns) else "bad" if dns else "neutral",
+            font_size=17)
         self.overview_cards["gateway"].value.setText(
             self.t("Responde") if any(p.ok for p in gateway)
             else self.t("Sin respuesta") if gateway else "—")
+        self.overview_cards["gateway"].set_tone(
+            "good" if any(p.ok for p in gateway) else "neutral", font_size=17)
         self.overview_cards["external"].value.setText(
             self.t("Confirmada") if any(p.ok for p in external)
             else self.t("Sin confirmar") if external else "—")
+        self.overview_cards["external"].set_tone(
+            "good" if any(p.ok for p in external) else "neutral", font_size=17)
         adapter_label = "Route adapter" if self.language == "en" else "Adaptador de ruta"
         gateway_label = "IPv4 gateway" if self.language == "en" else "Puerta de enlace IPv4"
         lines = [
