@@ -27,6 +27,8 @@ The same bundle smoke check passed locally against v29 after the compact time-la
 The v30 bundle smoke check and ZIP integrity check passed after separating pending weather from confirmed secondary phenomena. The automated suite contained 111 passing tests.
 In a separate local real-mode run with isolated app data and the default 30-second interval, the v30 executable remained active for 155 seconds and saved five rounds. Its working set at the end was about 131 MiB. This short check does not establish stability over hours or across different networks.
 
+For a repeatable real-mode endurance check on a Windows machine, run `python scripts/soak_bundle.py --seconds 3600 --interval 30 --data-dir ..\NetworkWeather-soak-results` after building the bundle. Choose an empty data directory. The script measures actual default destinations, records rounds, memory and CPU, and keeps the isolated SQLite database when `--data-dir` is given. It uses Qt's offscreen platform and force-stops the test process after the interval, so it does not verify tray interaction or a graceful exit. A short local check of this harness on v30 saved seven rounds in 45 seconds at a five-second interval, with memory from 67.7 to 71.1 MiB and 2.3 CPU seconds after startup. A one-hour run has not yet been completed.
+
 ## Instrucciones de empaquetado en español
 
 Desde PowerShell, con Python 3.12 o superior:
@@ -44,3 +46,5 @@ python scripts/smoke_bundle.py
 ```
 
 El ejecutable portátil queda en `dist\NetworkWeather`; conserva toda esa carpeta al copiarlo. El script de comprobación verifica las ocho imágenes, el arranque en demostración, la instancia única y que el modo demo no escriba mediciones reales. La CI de Windows ejecutará los mismos pasos cuando el proyecto esté en GitHub. El paquete local todavía necesita probarse en una instalación limpia de Windows y verificar directamente la salida por bandeja y la persistencia de imágenes dentro del ejecutable antes de una publicación pública.
+
+Para repetir una prueba de funcionamiento continuo en modo real, ejecuta `python scripts/soak_bundle.py --seconds 3600 --interval 30 --data-dir ..\NetworkWeather-soak-results` tras compilar. Usa una carpeta de datos vacía. El script consulta los destinos predeterminados, registra rondas, memoria y CPU, y conserva la base SQLite aislada si indicas `--data-dir`. Utiliza Qt sin pantalla y detiene el proceso de prueba al terminar; no comprueba la bandeja ni una salida normal. Se validó localmente con una ejecución corta, pero todavía falta la prueba de una hora.

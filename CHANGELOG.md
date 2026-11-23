@@ -40,5 +40,6 @@
 - Made nearby compact-chart timestamps distinguishable down to seconds and colored confirmed healthy DNS/TCP results green without treating unanswered gateway ICMP as a proven fault.
 - Separated a weather candidate awaiting hysteresis from confirmed secondary phenomena; the overview now lists additional observed signals only after confirmation.
 - Added complete Spanish and English user guides for controls, settings and weather meanings, plus Spanish packaging and architecture instructions.
+- Added a repeatable packaged real-mode soak command that records rounds, memory and CPU using isolated app data.
 
 This is a development snapshot. No release or executable has been published.
