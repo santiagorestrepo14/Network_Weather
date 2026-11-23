@@ -188,6 +188,7 @@ EN = {
     "No se pudo configurar": "Could not configure",
     "Imágenes (*.png *.jpg *.jpeg *.webp)": "Images (*.png *.jpg *.jpeg *.webp)",
     "Imagen no válida": "Invalid image",
+    "No se pudo leer el archivo seleccionado.": "Could not read the selected file.",
     "Usa PNG, JPG o WebP de 64–4096 px y hasta 10 MB.":
         "Use PNG, JPG or WebP, 64–4096 px and up to 10 MB.",
     "¿Aplicar esta imagen al clima seleccionado?": "Apply this image to the selected weather state?",

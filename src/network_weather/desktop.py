@@ -981,20 +981,24 @@ class ExpandedPanel(QMainWindow):
         self.language_input.currentIndexChanged.connect(self._set_language)
         layout.addWidget(language_label)
         layout.addWidget(self.language_input)
-        reduced = QCheckBox(self.t("Movimiento reducido"))
-        reduced.setChecked(self.settings.value("reduced_motion", False, type=bool))
-        reduced.toggled.connect(lambda checked: self.settings.setValue("reduced_motion", checked))
-        effects = QCheckBox(self.t("Efectos meteorológicos"))
-        effects.setChecked(self.settings.value("effects", True, type=bool))
-        effects.toggled.connect(lambda checked: self.settings.setValue("effects", checked))
-        layout.addWidget(reduced)
-        layout.addWidget(effects)
-        fit = QComboBox()
-        fit.addItems(["cover", "contain", "center"])
-        fit.setCurrentText(self.settings.value("image_fit", "cover"))
-        fit.currentTextChanged.connect(lambda value: self.settings.setValue("image_fit", value))
+        self.reduced_motion_checkbox = QCheckBox(self.t("Movimiento reducido"))
+        self.reduced_motion_checkbox.setChecked(
+            self.settings.value("reduced_motion", False, type=bool))
+        self.reduced_motion_checkbox.toggled.connect(
+            lambda checked: self._set_visual_option("reduced_motion", checked))
+        self.effects_checkbox = QCheckBox(self.t("Efectos meteorológicos"))
+        self.effects_checkbox.setChecked(self.settings.value("effects", True, type=bool))
+        self.effects_checkbox.toggled.connect(
+            lambda checked: self._set_visual_option("effects", checked))
+        layout.addWidget(self.reduced_motion_checkbox)
+        layout.addWidget(self.effects_checkbox)
+        self.image_fit_input = QComboBox()
+        self.image_fit_input.addItems(["cover", "contain", "center"])
+        self.image_fit_input.setCurrentText(self.settings.value("image_fit", "cover"))
+        self.image_fit_input.currentTextChanged.connect(
+            lambda value: self._set_visual_option("image_fit", value))
         layout.addWidget(QLabel(self.t("Ajuste de imagen")))
-        layout.addWidget(fit)
+        layout.addWidget(self.image_fit_input)
         layout.addWidget(QLabel(self.t("Mediciones · los cambios se aplican al reiniciar")))
         self.interval_input = QSpinBox()
         self.interval_input.setRange(5, 3600)
@@ -1051,6 +1055,19 @@ class ExpandedPanel(QMainWindow):
         scroll.setWidgetResizable(True)
         scroll.setWidget(page)
         return scroll
+
+    def _refresh_visuals(self, *, reload_images: bool = False) -> None:
+        scenes = (self.widget_ref.scene, self.overview_scene, *self.weather_previews.values())
+        for scene in scenes:
+            if reload_images:
+                scene.invalidate_image()
+            else:
+                scene.update()
+
+    def _set_visual_option(self, key: str, value: object) -> None:
+        self.settings.setValue(key, value)
+        self.settings.sync()
+        self._refresh_visuals()
 
     def _set_language(self, _index: int) -> None:
         chosen = self.language_input.currentData()
@@ -1121,9 +1138,18 @@ class ExpandedPanel(QMainWindow):
         if not file:
             return
         source = Path(file)
+        try:
+            byte_size = source.stat().st_size
+        except OSError:
+            QMessageBox.warning(self, self.t("Imagen no válida"),
+                                self.t("No se pudo leer el archivo seleccionado."))
+            return
         reader = QImageReader(file)
         size = reader.size()
-        if (source.stat().st_size > 10_000_000 or not reader.canRead() or
+        image_format = bytes(reader.format()).lower()
+        if (source.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"} or
+                image_format not in {b"png", b"jpeg", b"jpg", b"webp"} or
+                byte_size > 10_000_000 or not reader.canRead() or
                 size.width() < 64 or size.height() < 64 or
                 size.width() > 4096 or size.height() > 4096):
             QMessageBox.warning(self, self.t("Imagen no válida"),
@@ -1154,13 +1180,13 @@ class ExpandedPanel(QMainWindow):
             return
         temporary.replace(target)
         self.settings.setValue(f"image/{weather.value}", str(target))
-        self.widget_ref.scene.invalidate_image()
-        self.weather_previews[weather].invalidate_image()
+        self.settings.sync()
+        self._refresh_visuals(reload_images=True)
 
     def _reset_image(self, weather: Weather) -> None:
         self.settings.remove(f"image/{weather.value}")
-        self.widget_ref.scene.invalidate_image()
-        self.weather_previews[weather].invalidate_image()
+        self.settings.sync()
+        self._refresh_visuals(reload_images=True)
 
     def update_measurement(self, round_: MeasurementRound, result: Classification) -> None:
         self.overview_scene.set_weather(result.weather)

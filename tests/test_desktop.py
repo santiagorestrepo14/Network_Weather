@@ -38,17 +38,112 @@ def test_custom_weather_image_is_copied_and_persisted(tmp_path, monkeypatch):
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *_args: (str(source), ""))
     monkeypatch.setattr(QMessageBox, "exec", lambda _self: QMessageBox.StandardButton.Apply)
 
+    widget.scene.set_weather(Weather.RAINY)
+    panel.overview_scene.set_weather(Weather.RAINY)
+    widget.show()
+    panel.show()
+    app.processEvents()
     panel._choose_image(Weather.RAINY)
     saved = settings.value("image/rainy")
     assert saved != str(source)
     assert os.path.isfile(saved)
     assert source.is_file()
     assert QImage(saved).pixelColor(0, 0) == QColor("#123456")
+    cover = widget.scene.grab().toImage()
+    panel.overview_scene.grab()
+    assert widget.scene._cached_image_path == saved
+    assert panel.overview_scene._cached_image_path == saved
+    panel.image_fit_input.setCurrentText("contain")
+    app.processEvents()
+    assert widget.scene.grab().toImage() != cover
     panel._reset_image(Weather.RAINY)
     assert settings.value("image/rainy") is None
+    panel.overview_scene.grab()
+    assert panel.overview_scene._cached_image_path.endswith("rainy.png")
     assert source.is_file()
     panel.close()
     widget.hide()
+    app.processEvents()
+
+
+def test_effects_and_reduced_motion_apply_to_visible_scenes_immediately(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    widget = WeatherWidget(settings)
+    panel = ExpandedPanel(settings, widget)
+    widget.scene.timer.stop()
+    panel.overview_scene.timer.stop()
+    for scene in (widget.scene, panel.overview_scene):
+        scene.set_weather(Weather.RAINY)
+        scene.phase = 1.0
+    widget.show()
+    panel.show()
+    app.processEvents()
+    animated_widget = widget.scene.grab().toImage()
+    animated_overview = panel.overview_scene.grab().toImage()
+    panel.effects_checkbox.setChecked(False)
+    app.processEvents()
+    assert widget.scene.grab().toImage() != animated_widget
+    assert panel.overview_scene.grab().toImage() != animated_overview
+    panel.effects_checkbox.setChecked(True)
+    panel.reduced_motion_checkbox.setChecked(True)
+    app.processEvents()
+    assert settings.value("reduced_motion", type=bool)
+    assert widget.scene.grab().toImage() != animated_widget
+    panel.close()
+    widget.hide()
+    app.processEvents()
+
+
+def test_missing_or_disguised_image_is_rejected_without_changing_selection(tmp_path, monkeypatch):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    widget = WeatherWidget(settings)
+    panel = ExpandedPanel(settings, widget)
+    messages = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *_args: messages.append("invalid"))
+    missing = tmp_path / "missing.png"
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *_args: (str(missing), ""))
+    panel._choose_image(Weather.RAINY)
+    disguised = tmp_path / "disguised.exe"
+    image = QImage(128, 128, QImage.Format.Format_RGB32)
+    image.fill(QColor("#123456"))
+    assert image.save(str(disguised), "PNG")
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *_args: (str(disguised), ""))
+    panel._choose_image(Weather.RAINY)
+    assert messages == ["invalid", "invalid"]
+    assert settings.value("image/rainy") is None
+    panel.close()
+    widget.hide()
+    app.processEvents()
+
+
+def test_imported_weather_image_survives_new_settings_session(tmp_path, monkeypatch):
+    app = QApplication.instance() or QApplication([])
+    settings_path = tmp_path / "settings.ini"
+    settings = QSettings(str(settings_path), QSettings.Format.IniFormat)
+    widget = WeatherWidget(settings)
+    panel = ExpandedPanel(settings, widget)
+    source = tmp_path / "wind.png"
+    image = QImage(128, 128, QImage.Format.Format_RGB32)
+    image.fill(QColor("#5874cc"))
+    assert image.save(str(source))
+    monkeypatch.setattr("network_weather.desktop.default_data_dir", lambda: tmp_path / "appdata")
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *_args: (str(source), ""))
+    monkeypatch.setattr(QMessageBox, "exec", lambda _self: QMessageBox.StandardButton.Apply)
+    panel._choose_image(Weather.WINDY)
+    saved = settings.value("image/windy")
+    panel.close()
+    widget.hide()
+    reopened_settings = QSettings(str(settings_path), QSettings.Format.IniFormat)
+    reopened = WeatherWidget(reopened_settings)
+    reopened.scene.set_weather(Weather.WINDY)
+    reopened.show()
+    app.processEvents()
+    reopened.scene.grab()
+    assert reopened.scene._cached_image_path == saved
+    assert source.is_file()
+    reopened.hide()
     app.processEvents()
 
 

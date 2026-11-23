@@ -20,5 +20,6 @@
 - Added per-destination diagnostic sample counts, medians, nearest-rank P95, comparable-time variation and protocol-specific failure percentages.
 - Read Windows logon startup from the per-user registry entry and keep the checkbox in sync with actual registration.
 - Added an optional DNS-independent TCP/443 probe to a configured public IP, with separate evidence for DNS failure versus external connectivity.
+- Applied image, fit and motion changes immediately across all weather scenes; rejected missing or disguised image files before import.
 
 This is a development snapshot. No release or executable has been published.
