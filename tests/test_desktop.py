@@ -79,6 +79,8 @@ def test_effects_and_reduced_motion_apply_to_visible_scenes_immediately(tmp_path
     widget.show()
     panel.show()
     app.processEvents()
+    widget.scene.timer.stop()
+    panel.overview_scene.timer.stop()
     animated_widget = widget.scene.grab().toImage()
     animated_overview = panel.overview_scene.grab().toImage()
     panel.effects_checkbox.setChecked(False)
@@ -161,6 +163,53 @@ def test_each_weather_has_a_readable_default_image(tmp_path):
         app.processEvents()
         assert not scene.grab().isNull()
         assert not scene._cached_image.isNull()
+    scene.hide()
+
+
+def test_weather_animation_runs_only_when_visible_and_enabled(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    scene = WeatherScene(settings)
+    scene.set_weather(Weather.RAINY)
+    assert not scene.timer.isActive()
+    scene.show()
+    app.processEvents()
+    assert scene.timer.isActive()
+    scene.hide()
+    assert not scene.timer.isActive()
+    scene.show()
+    assert scene.timer.isActive()
+    settings.setValue("effects", False)
+    scene.sync_animation()
+    assert not scene.timer.isActive()
+    settings.setValue("effects", True)
+    scene.sync_animation()
+    assert scene.timer.isActive()
+    settings.setValue("reduced_motion", True)
+    scene.sync_animation()
+    assert not scene.timer.isActive()
+    settings.setValue("reduced_motion", False)
+    scene.set_weather(Weather.OFFLINE)
+    assert not scene.timer.isActive()
+    scene.set_weather(Weather.SUNNY)
+    assert scene.timer.isActive()
+    scene.hide()
+
+
+def test_sunny_and_cloudy_have_motion_but_previews_stay_static(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    scene = WeatherScene(settings, animated=False)
+    scene.resize(440, 210)
+    scene.show()
+    app.processEvents()
+    for weather in (Weather.SUNNY, Weather.CLOUDY):
+        scene.set_weather(weather)
+        scene.phase = 0
+        first = scene.grab().toImage()
+        scene.phase = 2
+        assert scene.grab().toImage() != first
+        assert not scene.timer.isActive()
     scene.hide()
 
 

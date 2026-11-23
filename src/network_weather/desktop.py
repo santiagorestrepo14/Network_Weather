@@ -122,25 +122,47 @@ def icon() -> QIcon:
 class WeatherScene(QWidget):
     """Procedural, redistributable scene with independent optional image/effects."""
 
-    def __init__(self, settings: QSettings, parent: QWidget | None = None) -> None:
+    def __init__(self, settings: QSettings, parent: QWidget | None = None,
+                 *, animated: bool = True) -> None:
         super().__init__(parent)
         self.settings = settings
         self.weather = Weather.UNKNOWN
+        self.animated = animated
         self.phase = 0.0
         self._cached_image_path = ""
         self._cached_image = QImage()
         self.setMinimumHeight(205)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._tick)
-        self.timer.start(120)
+
+    def sync_animation(self) -> None:
+        should_run = (
+            self.animated and self.isVisible()
+            and self.weather in (Weather.SUNNY, Weather.CLOUDY, Weather.WINDY,
+                                 Weather.RAINY, Weather.FOGGY, Weather.STORMY)
+            and self.settings.value("effects", True, type=bool)
+            and not self.settings.value("reduced_motion", False, type=bool)
+        )
+        if should_run and not self.timer.isActive():
+            self.timer.start(120)
+        elif not should_run and self.timer.isActive():
+            self.timer.stop()
+
+    def showEvent(self, event: object) -> None:
+        super().showEvent(event)
+        self.sync_animation()
+
+    def hideEvent(self, event: object) -> None:
+        self.timer.stop()
+        super().hideEvent(event)
 
     def _tick(self) -> None:
-        if self.isVisible() and self.settings.value("effects", True, type=bool) and not self.settings.value("reduced_motion", False, type=bool):
-            self.phase += 0.08
-            self.update()
+        self.phase += 0.08
+        self.update()
 
     def set_weather(self, weather: Weather) -> None:
         self.weather = weather
+        self.sync_animation()
         self.update()
 
     def invalidate_image(self) -> None:
@@ -268,7 +290,27 @@ class WeatherScene(QWidget):
     def _effects(self, p: QPainter, accent: QColor) -> None:
         w, h = self.width(), self.height()
         motion = 0 if self.settings.value("reduced_motion", False, type=bool) else self.phase
-        if self.weather in (Weather.RAINY, Weather.STORMY):
+        if self.weather == Weather.SUNNY:
+            pulse = (1 + math.sin(motion * 1.5)) / 2
+            radius = min(w * .24, h * .65) * (1 + .08 * pulse)
+            glow = QRadialGradient(w * .72, h * .32, radius)
+            glow.setColorAt(0, QColor(255, 238, 170, int(28 + pulse * 20)))
+            glow.setColorAt(1, QColor(255, 210, 140, 0))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(glow)
+            p.drawEllipse(QPoint(int(w * .72), int(h * .32)), int(radius), int(radius))
+        elif self.weather == Weather.CLOUDY:
+            p.setPen(Qt.PenStyle.NoPen)
+            for i, (cx, cy, rx, ry) in enumerate(((.43, .43, .22, .24),
+                                                   (.73, .31, .19, .19))):
+                shift = math.sin(motion * .75 + i * 1.8) * w * .018
+                haze = QRadialGradient(w * cx + shift, h * cy, w * rx)
+                haze.setColorAt(0, QColor(193, 204, 255, 30))
+                haze.setColorAt(1, QColor(193, 204, 255, 0))
+                p.setBrush(haze)
+                p.drawEllipse(QRectF(w * (cx-rx) + shift, h * (cy-ry),
+                                     w * rx * 2, h * ry * 2))
+        elif self.weather in (Weather.RAINY, Weather.STORMY):
             for i in range(45 if self.weather == Weather.STORMY else 25):
                 x = (i * 67 + int(motion * 24)) % max(1, w)
                 y = (i * 39 + int(motion * 70)) % max(1, h)
@@ -1037,8 +1079,7 @@ class ExpandedPanel(QMainWindow):
         grid = QGridLayout()
         for row, weather in enumerate(Weather):
             grid.addWidget(QLabel(weather_name(weather, self.language)), row, 0)
-            preview = WeatherScene(self.settings)
-            preview.timer.stop()
+            preview = WeatherScene(self.settings, animated=False)
             preview.setFixedSize(72, 44)
             preview.set_weather(weather)
             self.weather_previews[weather] = preview
@@ -1059,6 +1100,7 @@ class ExpandedPanel(QMainWindow):
     def _refresh_visuals(self, *, reload_images: bool = False) -> None:
         scenes = (self.widget_ref.scene, self.overview_scene, *self.weather_previews.values())
         for scene in scenes:
+            scene.sync_animation()
             if reload_images:
                 scene.invalidate_image()
             else:
