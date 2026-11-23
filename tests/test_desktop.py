@@ -405,10 +405,13 @@ def test_monitor_interval_accounts_for_probe_duration(monkeypatch):
     assert 0.5 <= waits[0] < 4.9
 
 
-def test_real_desktop_controller_stores_a_round_and_exits_cleanly(tmp_path, monkeypatch):
+def test_real_desktop_controller_monitors_while_hidden_and_exits_from_tray(tmp_path, monkeypatch):
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr("network_weather.desktop.default_data_dir", lambda: tmp_path)
     monkeypatch.setattr("network_weather.monitor.default_data_dir", lambda: tmp_path)
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    settings.setValue("interval", 5)
+    settings.sync()
     at = datetime.now(UTC)
     probes = tuple(
         ProbeResult(at, host, kind, ProbeStatus.SUCCESS, 10.0)
@@ -425,12 +428,23 @@ def test_real_desktop_controller_stores_a_round_and_exits_cleanly(tmp_path, monk
             time.sleep(0.01)
         assert controller.recent_rounds == [observed], controller.widget.monitoring.text()
         assert controller.worker.isRunning()
+        controller.widget.hide_requested.emit()
+        app.processEvents()
+        assert not controller.widget.isVisible()
+        deadline = time.monotonic() + 12
+        while len(controller.recent_rounds) < 2 and time.monotonic() < deadline:
+            app.processEvents()
+            time.sleep(0.01)
+        assert len(controller.recent_rounds) >= 2
+        controller.tray.contextMenu().actions()[-1].trigger()
+        app.processEvents()
     finally:
-        controller.exit()
+        if controller.worker.isRunning():
+            controller.exit()
     assert not controller.worker.isRunning()
     assert not controller.tray.isVisible()
     with HistoryStore(tmp_path / "history.db") as store:
-        assert len(store.recent_rounds()) == 1
+        assert len(store.recent_rounds()) >= 2
 
 
 def test_incident_selection_shows_persisted_evidence(tmp_path):

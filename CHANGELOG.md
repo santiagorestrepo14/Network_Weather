@@ -48,5 +48,6 @@
 - Scheduled desktop probes from the start of each round, so probe duration no longer adds another full configured interval.
 - Added drawn icons to the expanded panel navigation and corrected high-DPI scaling that cropped widget controls.
 - Stopped extending the final weather timeline segment through a long period without measurements.
+- Expanded the desktop integration check to verify that monitoring continues with the widget hidden and the tray Exit action stops it.
 
 This is a development snapshot. No release or executable has been published.
