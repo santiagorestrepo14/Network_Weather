@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from network_weather.config import ProbeConfig
 from network_weather.models import MeasurementRound, ProbeKind, ProbeResult, ProbeStatus
 from network_weather.monitor import Monitor
-from network_weather.weather import Weather
+from network_weather.weather import Classification, Weather
 
 
 def test_monitor_persists_and_restores_classification_window(tmp_path, monkeypatch):
@@ -97,3 +97,33 @@ def test_changed_destinations_do_not_reuse_classification_or_open_incident(tmp_p
     with Monitor(ProbeConfig(destinations=new_hosts), database) as monitor:
         assert len(monitor.engine.rounds) == 4
         assert monitor.history.incidents()[0]["ended_at"] is None
+
+
+def test_retention_runs_again_while_monitor_stays_open(tmp_path, monkeypatch):
+    now = datetime.now(UTC)
+    clock = [now]
+    monkeypatch.setattr("network_weather.monitor.utc_now", lambda: clock[0])
+    hosts = ("a.example", "b.example")
+
+    def round_at(at):
+        probes = tuple(
+            ProbeResult(at, host, kind, ProbeStatus.SUCCESS, 10)
+            for host in hosts for kind in (ProbeKind.DNS, ProbeKind.TCP, ProbeKind.HTTPS)
+        )
+        return MeasurementRound(at, at, probes)
+
+    recent = round_at(now)
+    monkeypatch.setattr("network_weather.monitor.collect_once", lambda _config: recent)
+    with Monitor(ProbeConfig(destinations=hosts, retention_days=30),
+                 tmp_path / "history.db") as monitor:
+        old = round_at(now - timedelta(days=40))
+        label = Classification(Weather.SUNNY, (), 0.8, 0, (), 1)
+        monitor.history.save(old, label)
+        monitor.history.save(recent, label)
+        assert len(monitor.history.recent_rounds()) == 2
+
+        clock[0] += timedelta(hours=2)
+        monitor.measure()
+        saved = monitor.history.recent_rounds()
+        assert len(saved) == 2
+        assert all(round_.started_at == now for round_ in saved)

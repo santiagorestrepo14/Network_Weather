@@ -32,7 +32,7 @@ Si la posición guardada del widget queda fuera de las pantallas disponibles (po
 
 En **Configuración → Idioma**, elige Español o English. La preferencia se aplica al reiniciar la aplicación y se conserva para las siguientes sesiones. Los mensajes técnicos devueltos por Windows o por un servidor externo pueden aparecer en el idioma original de ese sistema.
 
-Vista actual del widget en modo demostración: ![Widget de tormenta, versión de desarrollo](docs/widget-demo-v2.png)
+Vista actual del widget en modo demostración: ![Widget de tormenta, versión de desarrollo](docs/widget-demo-v3.png)
 
 Vista del resumen expandido con **valores sintéticos solo para revisar el diseño**: ![Vista previa del panel de Network Weather](docs/overview-preview.png)
 
@@ -62,6 +62,7 @@ En Windows, el diagnóstico puede mostrar calidad de señal Wi‑Fi (%), RSSI (d
 - La clasificación exige tres rondas, dos destinos y dos clasificaciones candidatas consecutivas para cambiar de clima. Los incidentes quedan abiertos durante resultados desconocidos y cierran tras dos rondas soleadas. La causa permanece sin atribuir.
 - Tras una interrupción de más de tres intervalos configurados (mínimo dos minutos), el motor descarta su ventana y su línea base recientes. La primera ronda nueva se clasifica como desconocida hasta reunir evidencia suficiente. Un incidente anterior termina en la última medición previa con la nota «monitoreo interrumpido»; esto no afirma que la conexión se recuperó durante la pausa.
 - Al cambiar los destinos y reiniciar la aplicación, el motor inicia una ventana de clasificación nueva. El historial anterior permanece disponible; un incidente previo se cierra en la última medición con una nota de cambio de contexto, sin afirmar recuperación.
+- El plazo de retención configurado se aplica al iniciar y cada hora mientras el monitor sigue activo, para limitar el crecimiento de SQLite durante sesiones largas.
 - «Sin conexión» requiere dos rondas completas sin respuesta TCP ni HTTPS de todos los destinos configurados. Una respuesta DNS, que puede venir de caché, no descarta ese estado; un fallo aislado, una prueba ausente o un error TLS tampoco lo confirman. La latencia se compara con una línea base propia de cada destino y la latencia alta de un único destino no se presenta como degradación general.
 - El motor de clima aún usa umbrales iniciales conservadores. Falta validar su comportamiento con conjuntos de datos reales de varios tipos de conexión antes de considerarlo diagnóstico definitivo.
 - El panel muestra historial por rango, latencia TCP por destino, puerta de enlace, datos Wi‑Fi disponibles e incidentes con inicio, fin, duración, severidad y evidencias. Todavía falta una evaluación de confianza específica para causas. No se atribuye ninguna causa a un proveedor.

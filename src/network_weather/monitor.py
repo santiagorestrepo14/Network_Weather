@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from pathlib import Path
 from typing import Self
 
 from network_weather.collector import collect_once
 from network_weather.config import ProbeConfig, default_data_dir
 from network_weather.history import HistoryStore
-from network_weather.models import MeasurementRound, ProbeKind
+from network_weather.models import MeasurementRound, ProbeKind, utc_now
 from network_weather.weather import Classification, WeatherEngine
 
 
@@ -17,6 +18,7 @@ class Monitor:
         self.config = config
         self.history = HistoryStore(database or default_data_dir() / "history.db")
         self.history.prune(config.retention_days)
+        self._next_prune_at = utc_now() + timedelta(hours=1)
         self.engine = WeatherEngine(config.interval_seconds)
         recent = self.history.recent_rounds(60)
         expected = (frozenset(config.destinations), config.direct_ip_target)
@@ -30,6 +32,10 @@ class Monitor:
             self.engine.add(round_)
 
     def measure(self) -> tuple[MeasurementRound, Classification]:
+        now = utc_now()
+        if now >= self._next_prune_at:
+            self.history.prune(self.config.retention_days)
+            self._next_prune_at = now + timedelta(hours=1)
         round_ = collect_once(self.config)
         if self.engine.observation_gap(round_):
             self.history.end_active_incident_for_gap(self.engine.rounds[-1].finished_at)

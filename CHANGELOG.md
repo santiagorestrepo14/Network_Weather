@@ -24,5 +24,7 @@
 - Added subtle motion to sunny and cloudy scenes; animation timers now run only for visible, animated weather when effects are enabled.
 - Reset classification after configured probe destinations change, while retaining older history and closing prior incidents without claiming recovery.
 - Try one alternate resolved address when the preferred TCP or HTTPS address fails; record the retry context without counting it as an extra measurement sample.
+- Reapply the SQLite retention policy hourly while monitoring continues, including after long-running sessions.
+- Moved the compact widget's weather and monitoring labels onto the illustrated scene with a dark readability gradient.
 
 This is a development snapshot. No release or executable has been published.
