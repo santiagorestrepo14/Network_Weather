@@ -10,6 +10,7 @@ from dataclasses import replace
 from ipaddress import ip_address
 
 from network_weather.models import ProbeKind, ProbeResult, ProbeStatus, utc_now
+from network_weather.windows_http import https_head_system_route
 
 AddressInfo = tuple[int, int, int, str, tuple]
 
@@ -138,14 +139,33 @@ def probe_https(host: str, info: AddressInfo, timeout: float, path: str = "/") -
 def probe_destination(host: str, timeout: float, path: str = "/") -> tuple[ProbeResult, ...]:
     dns, infos = probe_dns(host)
     if not infos:
-        return (dns,)
+        system = _system_https_result(host, path, timeout, "Local DNS did not resolve")
+        return (dns, system) if system else (dns,)
     candidates = _candidate_infos(infos)
     tcp, tcp_info = _probe_with_fallback(
         candidates, lambda info: probe_tcp(host, info, timeout))
     https_candidates = (tcp_info, *(info for info in candidates if info != tcp_info))
     https, _ = _probe_with_fallback(
         https_candidates, lambda info: probe_https(host, info, timeout, path))
+    if not https.ok:
+        system = _system_https_result(
+            host, path, timeout, f"Direct HTTPS failed ({https.status.value})")
+        if system:
+            https = system
     return dns, tcp, https
+
+
+def _system_https_result(
+    host: str, path: str, timeout: float, context: str,
+) -> ProbeResult | None:
+    observed = https_head_system_route(host, path, timeout)
+    if observed is None:
+        return None
+    duration_ms, http_status = observed
+    return ProbeResult(
+        utc_now(), host, ProbeKind.HTTPS, ProbeStatus.SUCCESS, duration_ms,
+        detail=f"WinHTTP system route; {context}", http_status=http_status,
+    )
 
 
 def _candidate_infos(infos: list[AddressInfo]) -> tuple[AddressInfo, ...]:

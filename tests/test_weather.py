@@ -202,6 +202,24 @@ def test_dns_failure_with_repeated_direct_ip_success_is_foggy():
     assert result.weather == Weather.FOGGY
 
 
+def test_verified_https_via_system_route_supports_foggy_when_local_dns_fails():
+    rounds = []
+    for index in range(3):
+        at = BASE + timedelta(seconds=index * 30)
+        probes = tuple(
+            ProbeResult(at, host, ProbeKind.DNS, ProbeStatus.DNS_ERROR, None)
+            for host in HOSTS
+        ) + tuple(
+            ProbeResult(at, host, ProbeKind.HTTPS, ProbeStatus.SUCCESS, 40.0,
+                        detail="WinHTTP system route", http_status=200)
+            for host in HOSTS
+        )
+        rounds.append(MeasurementRound(at, at, probes))
+    result = classify(rounds)
+    assert result.weather == Weather.FOGGY
+    assert {e.code for e in result.evidence} == {"dns_failures", "https_without_local_dns"}
+
+
 def test_direct_ip_success_vetoes_offline_even_when_name_targets_fail():
     rounds = [round_at(0)]
     for index in (1, 2):

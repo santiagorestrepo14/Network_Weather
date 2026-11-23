@@ -12,7 +12,7 @@ from PySide6.QtGui import QColor, QImage, QImageReader
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 from network_weather.compact_history import compact_points
-from network_weather.desktop import ExpandedPanel, WeatherScene, WeatherWidget
+from network_weather.desktop import ExpandedPanel, HistoryQueryThread, WeatherScene, WeatherWidget
 from network_weather.diagnostics import recent_diagnostics
 from network_weather.history import HistorySeries, LatencyBin, WeatherPoint
 from network_weather.models import (
@@ -281,6 +281,21 @@ def test_history_panel_filters_and_renders_observed_series(tmp_path):
     panel.close()
     widget.hide()
     app.processEvents()
+
+
+def test_history_query_thread_can_start_and_load_an_empty_range(tmp_path, monkeypatch):
+    app = QApplication.instance() or QApplication([])
+    monkeypatch.setattr("network_weather.desktop.default_data_dir", lambda: tmp_path)
+    end = datetime.now(UTC)
+    thread = HistoryQueryThread(end - timedelta(hours=1), end, None)
+    loaded = []
+    thread.loaded.connect(lambda series, incidents: loaded.append((series, incidents)))
+    thread.start()
+    assert thread.wait(5000)
+    app.processEvents()
+    assert len(loaded) == 1
+    assert loaded[0][0].weather == ()
+    assert loaded[0][1] == []
 
 
 def test_incident_selection_shows_persisted_evidence(tmp_path):

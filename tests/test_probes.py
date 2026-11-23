@@ -6,6 +6,8 @@ from network_weather.probes import probe_destination, probe_direct_ip, probe_tcp
 
 
 def test_dns_failure_does_not_invent_tcp_or_https_attempts(monkeypatch):
+    monkeypatch.setattr("network_weather.probes.https_head_system_route",
+                        lambda *_args: None)
     def fail(*_args, **_kwargs):
         raise socket.gaierror("lookup failed")
 
@@ -71,6 +73,8 @@ def test_destination_uses_second_address_when_first_is_unreachable(monkeypatch):
 
     monkeypatch.setattr(probes, "probe_tcp", fake_tcp)
     monkeypatch.setattr(probes, "probe_https", fake_https)
+    monkeypatch.setattr(probes, "https_head_system_route",
+                        lambda *_args: (_ for _ in ()).throw(AssertionError("system fallback called")))
     _, tcp, https = probe_destination("host.example", 0.5)
     assert attempts == [("tcp", "2001:db8::1"), ("tcp", "192.0.2.1"),
                         ("https", "192.0.2.1")]
@@ -100,7 +104,44 @@ def test_destination_reports_failure_when_both_addresses_fail(monkeypatch):
 
     monkeypatch.setattr(probes, "probe_tcp", fail(ProbeKind.TCP))
     monkeypatch.setattr(probes, "probe_https", fail(ProbeKind.HTTPS))
+    monkeypatch.setattr(probes, "https_head_system_route", lambda *_args: None)
     _, tcp, https = probe_destination("host.example", 0.5)
     assert len(calls) == 4
     assert not tcp.ok and not https.ok
     assert "192.0.2.1" in tcp.detail and "192.0.2.2" in tcp.detail
+
+
+def test_system_route_can_confirm_https_after_direct_tls_failure(monkeypatch):
+    from network_weather import probes
+
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    info = (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("192.0.2.1", 443))
+    dns = ProbeResult(at, "host.example", ProbeKind.DNS, ProbeStatus.SUCCESS, 1)
+    monkeypatch.setattr(probes, "probe_dns", lambda _host: (dns, [info]))
+    monkeypatch.setattr(probes, "probe_tcp", lambda host, *_args: ProbeResult(
+        at, host, ProbeKind.TCP, ProbeStatus.SUCCESS, 10, address="192.0.2.1"))
+    monkeypatch.setattr(probes, "probe_https", lambda host, *_args: ProbeResult(
+        at, host, ProbeKind.HTTPS, ProbeStatus.TLS_ERROR, None,
+        address="192.0.2.1", detail="certificate verification failed"))
+    monkeypatch.setattr(probes, "https_head_system_route",
+                        lambda *_args: (30.0, 200))
+    dns_result, tcp, https = probe_destination("host.example", 0.5)
+    assert dns_result.ok and tcp.ok and https.ok
+    assert https.duration_ms == 30.0
+    assert https.address is None
+    assert "WinHTTP system route" in https.detail
+    assert "tls_error" in https.detail
+
+
+def test_system_route_works_when_local_dns_fails(monkeypatch):
+    from network_weather import probes
+
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    dns = ProbeResult(at, "host.example", ProbeKind.DNS, ProbeStatus.DNS_ERROR, None)
+    monkeypatch.setattr(probes, "probe_dns", lambda _host: (dns, []))
+    monkeypatch.setattr(probes, "https_head_system_route",
+                        lambda *_args: (40.0, 204))
+    results = probe_destination("host.example", 0.5)
+    assert [result.kind for result in results] == [ProbeKind.DNS, ProbeKind.HTTPS]
+    assert results[1].ok
+    assert results[1].address is None

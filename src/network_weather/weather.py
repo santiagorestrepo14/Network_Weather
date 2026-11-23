@@ -125,19 +125,30 @@ def classify(
             for p in round_.probes)
         for round_ in recent
     )
+    https_success_rounds = sum(
+        any(p.kind == ProbeKind.HTTPS and p.ok for p in round_.probes)
+        for round_ in recent
+    )
     dns_failed_rounds = sum(
         any(p.kind == ProbeKind.DNS and not p.ok for p in round_.probes)
         for round_ in recent
     )
     if not tcp or not https:
-        if dns_rate >= 0.4 and dns_failed_rounds >= 2 and direct_success_rounds >= 2:
+        if (dns_rate >= 0.4 and dns_failed_rounds >= 2
+                and (direct_success_rounds >= 2 or https_success_rounds >= 2)):
+            evidence = [Evidence("dns_failures", "DNS resolution failed for several probes",
+                                 dns_rate, 0.4)]
+            if direct_success_rounds >= 2:
+                evidence.append(Evidence(
+                    "direct_ip_tcp_replied",
+                    "A direct TCP connection to a configured IP succeeded"))
+            if https_success_rounds >= 2:
+                evidence.append(Evidence(
+                    "https_without_local_dns",
+                    "Verified HTTPS responded despite failed local DNS resolution"))
             return Classification(
                 Weather.FOGGY, (), 0.75, 0.5,
-                (Evidence("dns_failures", "DNS resolution failed for several probes",
-                          dns_rate, 0.4),
-                 Evidence("direct_ip_tcp_replied",
-                          "A direct TCP connection to a configured IP succeeded")),
-                len(recent),
+                tuple(evidence), len(recent),
             )
         return Classification(
             Weather.UNKNOWN, (), 0.2, 0.0,

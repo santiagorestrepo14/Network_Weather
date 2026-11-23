@@ -27,5 +27,8 @@
 - Reapply the SQLite retention policy hourly while monitoring continues, including after long-running sessions.
 - Moved the compact widget's weather and monitoring labels onto the illustrated scene with a dark readability gradient.
 - Added a short crossfade when weather changes; reduced motion and disabled effects skip it, and static states return to idle afterward.
+- Added a verified WinHTTP HEAD fallback through the Windows system route after direct HTTPS failure; repeated HTTPS success can corroborate DNS trouble without claiming an outage.
+- Fixed real-mode desktop startup by keeping history range fields separate from `QThread.start()`.
+- Initialized missing standard output streams in the windowed Windows bundle so third-party code can run without a console.
 
 This is a development snapshot. No release or executable has been published.

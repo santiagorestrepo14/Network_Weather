@@ -511,12 +511,13 @@ class HistoryQueryThread(QThread):
 
     def __init__(self, start: datetime, end: datetime, destination: str | None) -> None:
         super().__init__()
-        self.start, self.end, self.destination = start, end, destination
+        self.range_start, self.range_end, self.destination = start, end, destination
 
     def run(self) -> None:
         try:
             with HistoryStore(default_data_dir() / "history.db") as store:
-                self.loaded.emit(store.history_range(self.start, self.end, self.destination),
+                self.loaded.emit(store.history_range(self.range_start, self.range_end,
+                                                     self.destination),
                                  store.incidents(100))
         except (OSError, ValueError, sqlite3.Error) as exc:
             self.failed.emit(str(exc))
