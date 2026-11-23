@@ -21,6 +21,8 @@ from network_weather.desktop import (
     MonitorThread,
     WeatherScene,
     WeatherWidget,
+    control_icon,
+    navigation_icon,
 )
 from network_weather.diagnostics import recent_diagnostics
 from network_weather.history import HistorySeries, HistoryStore, LatencyBin, WeatherPoint
@@ -462,6 +464,8 @@ def test_english_ui_uses_saved_language_for_widget_history_and_incidents(tmp_pat
     panel = ExpandedPanel(settings, widget)
     assert widget.weather_label.text() == "Unknown"
     assert panel.nav.item(0).text() == "Overview"
+    assert all(not panel.nav.item(index).icon().isNull()
+               for index in range(panel.nav.count()))
     assert panel.history_range.itemText(0) == "Last hour"
     assert panel.history_chart.language == "en"
     now = datetime(2026, 1, 1, tzinfo=UTC)
@@ -600,6 +604,21 @@ def test_widget_header_controls_have_icons_and_pin_state_is_clear(tmp_path):
     widget.toggle_pin()
     assert not settings.value("pinned", type=bool)
     widget.hide()
+
+
+def test_drawn_controls_and_navigation_icons_are_not_clipped():
+    app = QApplication.instance() or QApplication([])
+    app.processEvents()
+    for icon in (control_icon("panel"), navigation_icon("overview"),
+                 navigation_icon("history")):
+        image = icon.pixmap(24, 24).toImage()
+        visible = [(x, y) for x in range(image.width()) for y in range(image.height())
+                   if image.pixelColor(x, y).alpha()]
+        assert visible
+        assert 0 < min(x for x, _ in visible)
+        assert max(x for x, _ in visible) < image.width() - 1
+        assert 0 < min(y for _, y in visible)
+        assert max(y for _, y in visible) < image.height() - 1
 
 
 def test_overview_cards_use_observed_probe_results(tmp_path):

@@ -52,6 +52,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QListWidget,
+    QListWidgetItem,
     QMainWindow,
     QMenu,
     QMessageBox,
@@ -135,7 +136,6 @@ def control_icon(kind: str, color: str = "#c9d3ff") -> QIcon:
     pixmap.setDevicePixelRatio(2)
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
-    painter.scale(2, 2)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
     pen = QPen(QColor(color), 1.8)
     pen.setCapStyle(Qt.PenCapStyle.RoundCap)
@@ -156,6 +156,62 @@ def control_icon(kind: str, color: str = "#c9d3ff") -> QIcon:
     else:
         painter.end()
         raise ValueError(f"Unsupported control icon: {kind}")
+    painter.end()
+    return QIcon(pixmap)
+
+
+def navigation_icon(kind: str) -> QIcon:
+    """Draw consistent sidebar icons at high DPI without platform fonts."""
+    pixmap = QPixmap(48, 48)
+    pixmap.setDevicePixelRatio(2)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    pen = QPen(QColor("#b9b8f8"), 1.7)
+    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    painter.setPen(pen)
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    if kind == "overview":
+        roof = QPainterPath(QPoint(3, 11))
+        roof.lineTo(12, 4)
+        roof.lineTo(21, 11)
+        painter.drawPath(roof)
+        painter.drawRoundedRect(QRectF(6, 10, 12, 10), 1, 1)
+        painter.drawLine(11, 20, 11, 15)
+        painter.drawLine(11, 15, 14, 15)
+    elif kind == "diagnostics":
+        line = QPainterPath(QPoint(2, 12))
+        for x, y in ((6, 12), (9, 6), (12, 18), (15, 9), (18, 12), (22, 12)):
+            line.lineTo(x, y)
+        painter.drawPath(line)
+    elif kind == "history":
+        painter.drawEllipse(QPoint(12, 12), 9, 9)
+        painter.drawLine(12, 12, 12, 7)
+        painter.drawLine(12, 12, 16, 14)
+    elif kind == "incidents":
+        bell = QPainterPath(QPoint(5, 18))
+        bell.lineTo(7, 16)
+        bell.lineTo(7, 10)
+        bell.cubicTo(7, 3, 17, 3, 17, 10)
+        bell.lineTo(17, 16)
+        bell.lineTo(19, 18)
+        bell.closeSubpath()
+        painter.drawPath(bell)
+        painter.drawLine(10, 21, 14, 21)
+    elif kind == "settings":
+        painter.drawEllipse(QPoint(12, 12), 6, 6)
+        painter.drawEllipse(QPoint(12, 12), 2, 2)
+        for index in range(8):
+            angle = index * math.pi / 4
+            start = QPoint(round(12 + math.cos(angle) * 8),
+                           round(12 + math.sin(angle) * 8))
+            end = QPoint(round(12 + math.cos(angle) * 10),
+                         round(12 + math.sin(angle) * 10))
+            painter.drawLine(start, end)
+    else:
+        painter.end()
+        raise ValueError(f"Unsupported navigation icon: {kind}")
     painter.end()
     return QIcon(pixmap)
 
@@ -442,6 +498,8 @@ QFrame#overviewSection { background: #22284f; border: 1px solid #625c99; border-
 QFrame#overviewHero { background: #171e41; border: 1px solid #745ba9; border-radius: 16px; }
 QFrame#overviewCard { background: #25294e; border: 1px solid #655a96; border-radius: 13px; }
 QListWidget#panelNav { background: #19234b; border: 1px solid #5364a5; border-radius: 14px; padding: 8px; }
+QListWidget#panelNav::item { padding: 12px 8px; margin: 3px 0; border-radius: 9px; }
+QListWidget#panelNav::item:selected { background: qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #374b9a,stop:1 #6941a0); border: 1px solid #a973e6; }
 QFrame#shell { background: #1b1b3b; border: 1px solid #7665bf; border-radius: 22px; }
 QFrame#card { background: #292849; border: 1px solid #554e82; border-radius: 13px; }
 QPushButton { background: #35345e; border: 1px solid #665aa0; border-radius: 9px; padding: 6px 9px; }
@@ -860,8 +918,11 @@ class ExpandedPanel(QMainWindow):
         vertical.addLayout(horizontal, 1)
         self.nav = QListWidget()
         self.nav.setObjectName("panelNav")
-        self.nav.addItems([self.t(item) for item in
-                           ("Resumen", "Diagnóstico", "Historial", "Incidentes", "Configuración")])
+        for label, kind in (("Resumen", "overview"), ("Diagnóstico", "diagnostics"),
+                            ("Historial", "history"), ("Incidentes", "incidents"),
+                            ("Configuración", "settings")):
+            self.nav.addItem(QListWidgetItem(navigation_icon(kind), self.t(label)))
+        self.nav.setIconSize(QSize(23, 23))
         self.nav.setFixedWidth(175)
         horizontal.addWidget(self.nav)
         self.stack = QStackedWidget()

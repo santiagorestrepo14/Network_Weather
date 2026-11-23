@@ -46,5 +46,6 @@
 - Published a downloadable Windows development preview from successful `main` CI runs.
 - Sized scene image decoding for tall cover layouts and preserved native pixel size in center mode.
 - Scheduled desktop probes from the start of each round, so probe duration no longer adds another full configured interval.
+- Added drawn icons to the expanded panel navigation and corrected high-DPI scaling that cropped widget controls.
 
 This is a development snapshot. No release or executable has been published.
