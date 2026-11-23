@@ -31,6 +31,7 @@ La gráfica del widget compacto permite elegir **Latencia** o **Variación** y r
 Si la posición guardada del widget queda fuera de las pantallas disponibles (por ejemplo, al desconectar un monitor), la aplicación lo devuelve al área visible al abrirlo.
 
 Puedes arrastrar la esquina inferior izquierda del widget para cambiar su tamaño. El tamaño elegido se conserva al reiniciar. Durante las primeras mediciones puede aparecer «Desconocido» aunque las tarjetas ya tengan cifras: la descripción indica el avance hasta tres rondas y, después, la confirmación del clima con otra medición.
+Al cambiar el tamaño, las escenas recargan sus imágenes en una resolución adecuada por pasos para conservar nitidez sin mantener en memoria el archivo completo en las vistas previas pequeñas.
 
 **Iniciar con Windows** está desactivado por defecto. Al activarlo, Network Weather registra únicamente un comando para el usuario actual en `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`; al desactivarlo elimina su entrada. La casilla lee el registro real al abrir Configuración. Si la ruta registrada pertenece a otra instalación, avisa para que el usuario pueda desactivar y activar la opción y actualizarla. En una instalación Python usa `pythonw.exe` cuando está disponible; el ejecutable empaquetado usa su propia ruta. [Documentación de Microsoft sobre Run](https://learn.microsoft.com/en-us/windows/win32/setupapi/run-and-runonce-registry-keys).
 

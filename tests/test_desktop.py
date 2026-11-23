@@ -156,6 +156,35 @@ def test_imported_weather_image_survives_new_settings_session(tmp_path, monkeypa
     app.processEvents()
 
 
+def test_weather_scene_reloads_image_at_a_useful_size_after_resize(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    image_path = tmp_path / "large.png"
+    source = QImage(1024, 1024, QImage.Format.Format_RGB32)
+    source.fill(QColor("#5874cc"))
+    assert source.save(str(image_path))
+    settings.setValue("image/rainy", str(image_path))
+    scene = WeatherScene(settings, animated=False)
+    scene.set_weather(Weather.RAINY)
+    scene.resize(160, 205)
+    scene.show()
+    app.processEvents()
+    scene.grab()
+    small = scene._cached_image.width()
+    assert 0 < small < source.width()
+
+    scene.resize(440, 205)
+    app.processEvents()
+    scene.grab()
+    assert scene._cached_image.width() > small
+
+    scene.resize(160, 205)
+    app.processEvents()
+    scene.grab()
+    assert scene._cached_image.width() == small
+    scene.hide()
+
+
 def test_each_weather_has_a_readable_default_image(tmp_path):
     app = QApplication.instance() or QApplication([])
     settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)

@@ -142,6 +142,7 @@ class WeatherScene(QWidget):
         self._transition_image = QImage()
         self._transition_started = 0.0
         self._cached_image_path = ""
+        self._cached_decode_width = 0
         self._cached_image = QImage()
         self.setMinimumHeight(205)
         self.timer = QTimer(self)
@@ -198,6 +199,7 @@ class WeatherScene(QWidget):
 
     def invalidate_image(self) -> None:
         self._cached_image_path = ""
+        self._cached_decode_width = 0
         self._cached_image = QImage()
         self.update()
 
@@ -216,15 +218,17 @@ class WeatherScene(QWidget):
         p.fillRect(rect, gradient)
         default_path = Path(__file__).parent / "assets" / f"{self.weather.value}.png"
         image_path = self.settings.value(f"image/{self.weather.value}", "") or str(default_path)
-        if image_path != self._cached_image_path:
+        target_width = max(self.width() * 2, 144)
+        decode_width = ((target_width + 63) // 64) * 64
+        if image_path != self._cached_image_path or decode_width != self._cached_decode_width:
             self._cached_image_path = image_path
+            self._cached_decode_width = decode_width
             reader = QImageReader(image_path)
             if reader.canRead():
                 native = reader.size()
-                target_width = max(self.width()*2, 144)
-                if native.width() > target_width:
-                    ratio = target_width / native.width()
-                    reader.setScaledSize(QSize(target_width, max(1, int(native.height()*ratio))))
+                if native.width() > decode_width:
+                    ratio = decode_width / native.width()
+                    reader.setScaledSize(QSize(decode_width, max(1, int(native.height()*ratio))))
                 self._cached_image = reader.read()
             else:
                 self._cached_image = QImage()

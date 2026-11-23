@@ -24,6 +24,7 @@ An optional **Direct TCP probe without DNS** accepts a globally reachable numeri
 
 The desktop starts monitoring in a worker thread. Close or minimize the widget to keep monitoring in the system tray; choose **Exit** from the tray menu to stop. `--demo` cycles all eight visual states without network requests or synthetic history. Settings, widget position and imported weather images persist under `%LOCALAPPDATA%\NetworkWeather`.
 Drag the widget's lower-left corner to resize it; the chosen size persists. On first launch, **Unknown** shows the number of measurement rounds collected and may briefly confirm a candidate before displaying it as the current weather.
+Weather scenes reload images at bounded resolution steps as their display size changes, preserving sharpness without holding full-resolution images in small previews.
 
 Weather images and animated effects are independent. Each weather state can use an imported PNG, JPG or WebP (up to 10 MB and 4096 pixels per dimension), copied without modifying the original. The importer checks existence, format and dimensions before decoding. Image fit, effects and reduced motion apply immediately to the widget, overview and previews.
 Sunny and cloudy scenes have subtle ambient motion. Animation pauses for hidden scenes, static previews, offline/unknown states, and whenever effects are disabled or reduced motion is enabled.
