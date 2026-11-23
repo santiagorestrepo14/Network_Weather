@@ -78,7 +78,7 @@ En Windows, el diagnóstico puede mostrar calidad de señal Wi‑Fi (%), RSSI (d
 - El motor de clima aún usa umbrales iniciales conservadores. Falta validar su comportamiento con conjuntos de datos reales de varios tipos de conexión antes de considerarlo diagnóstico definitivo.
 - El panel muestra historial por rango, latencia TCP por destino, puerta de enlace, datos Wi‑Fi disponibles e incidentes con inicio, fin, duración, severidad y evidencias. Todavía falta una evaluación de confianza específica para causas. No se atribuye ninguna causa a un proveedor.
 - Los ocho fondos predeterminados son ilustraciones propias creadas para este proyecto. Qt dibuja encima los efectos de lluvia, viento, niebla y relámpagos, que pueden apagarse sin perder la imagen. Cada clima acepta una imagen PNG, JPG o WebP de hasta 10 MB y 4096 px, copiada al área de datos sin modificar el original. El importador verifica existencia, formato y dimensiones antes de decodificar. Cambiar imagen, ajuste, efectos o movimiento reducido actualiza de inmediato el widget, el resumen y las vistas previas.
-- Existe un ZIP de vista previa para Windows generado con PyInstaller. Abre `NetworkWeather.exe --demo` para revisar las escenas o `NetworkWeather.exe` para sondear la red. El paquete aún necesita validación en un Windows limpio antes de considerarse instalador público.
+- Existe un ZIP de vista previa para Windows generado con PyInstaller. Los envíos correctos a `main` dejan además una vista previa descargable en los [artefactos de la CI](https://github.com/santiagorestrepo14/Network_Weather/actions/workflows/ci.yml). Descarga el artefacto de una ejecución exitosa, descomprímelo y abre `NetworkWeather.exe --demo` para revisar las escenas o `NetworkWeather.exe` para sondear la red. Los artefactos se conservan 30 días. El paquete aún necesita validación interactiva en un Windows limpio antes de considerarse instalador público.
 
 ## Secuencia
 
@@ -88,4 +88,4 @@ En Windows, el diagnóstico puede mostrar calidad de señal Wi‑Fi (%), RSSI (d
 4. **D:** ocho escenas, animaciones y personalización segura de imágenes (base funcional; pulido pendiente).
 5. **E:** integración, pruebas en Windows, documentación completa, CI y ejecutable.
 
-La publicación en GitHub se hará cuando el proyecto esté listo y el usuario indique el repositorio de destino.
+El código de desarrollo se publica en este repositorio. Las vistas previas de CI permiten revisar cada versión de `main`; todavía no hay una versión final.

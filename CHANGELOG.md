@@ -43,5 +43,6 @@
 - Added a repeatable packaged real-mode soak command that records rounds, memory and CPU using isolated app data.
 - Reloaded weather images in bounded resolution steps when scenes resize, keeping enlarged custom backgrounds sharp and shrinking cached images when the widget gets smaller.
 - Replaced font-dependent widget title-bar symbols with drawn pin, panel and hide icons, including a visible pinned state and accessible control names.
+- Published a downloadable Windows development preview from successful `main` CI runs.
 
 This is a development snapshot. No release or executable has been published.
