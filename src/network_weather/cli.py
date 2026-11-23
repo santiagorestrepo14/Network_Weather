@@ -43,6 +43,8 @@ def main(argv: list[str] | None = None) -> int:
                 output["classification"] = {
                     "weather": result.weather.value,
                     "secondary": [weather.value for weather in result.secondary],
+                    "pending_weather": (result.pending_weather.value
+                                        if result.pending_weather is not None else None),
                     "confidence": result.confidence,
                     "severity": result.severity,
                     "evidence": [

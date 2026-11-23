@@ -47,6 +47,8 @@ Choose **Settings → Language** to switch between Spanish and English. Restart 
 
 A Windows preview ZIP has been built with PyInstaller, including the eight scene images. It still needs validation on a clean Windows machine before a public release.
 
+The overview lists confirmed secondary weather signals separately from a new weather candidate still awaiting confirmation.
+
 Current development preview (visual demo, no measured values): ![Storm widget preview](docs/widget-demo-v3.png)
 
 Expanded overview layout with **synthetic values for visual review only**: ![Network Weather overview preview](docs/overview-preview.png)

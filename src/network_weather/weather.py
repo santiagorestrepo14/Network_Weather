@@ -40,6 +40,7 @@ class Classification:
     sample_rounds: int
     # A cause is never assigned from these probes alone.
     cause: str | None = None
+    pending_weather: Weather | None = None
 
 
 def _rate(results: list[ProbeResult]) -> float | None:
@@ -290,8 +291,9 @@ class WeatherEngine:
             self._candidate_count = 0
             return raw
         return Classification(
-            self.current, (raw.weather,) if raw.weather != Weather.UNKNOWN else (),
+            self.current, (),
             min(raw.confidence, 0.5), raw.severity, raw.evidence, raw.sample_rounds,
+            pending_weather=raw.weather if raw.weather != Weather.UNKNOWN else None,
         )
 
     def observation_gap(self, round_: MeasurementRound) -> bool:

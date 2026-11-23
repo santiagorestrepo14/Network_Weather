@@ -53,8 +53,8 @@ def classification_description(result: Classification, language: str = "es") -> 
         count = min(result.sample_rounds, 3)
         return (f"Analizando la conexión ({count}/3 rondas)" if selected == "es"
                 else f"Collecting measurements ({count}/3 rounds)")
-    if result.secondary:
-        candidate = weather_name(result.secondary[0], selected)
+    if result.pending_weather is not None:
+        candidate = weather_name(result.pending_weather, selected)
         return (f"Confirmando {candidate} con otra medición" if selected == "es"
                 else f"Confirming {candidate} with another measurement")
     return weather_description(result.weather, selected)

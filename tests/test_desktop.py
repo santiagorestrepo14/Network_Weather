@@ -520,6 +520,29 @@ def test_overview_cards_use_observed_probe_results(tmp_path):
     app.processEvents()
 
 
+def test_overview_distinguishes_secondary_signals_from_pending_weather(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    widget = WeatherWidget(settings)
+    panel = ExpandedPanel(settings, widget)
+    at = datetime(2026, 11, 22, tzinfo=UTC)
+    round_ = MeasurementRound(at, at, ())
+    pending = Classification(Weather.UNKNOWN, (), 0.5, 0.8, (), 3,
+                             pending_weather=Weather.STORMY)
+    panel.update_measurement(round_, pending)
+    assert panel.summary_description.text() == "Confirmando Tormenta con otra medición"
+    assert panel.secondary_label.isHidden()
+
+    confirmed = Classification(Weather.STORMY, (Weather.RAINY, Weather.FOGGY),
+                               0.75, 0.8, (), 4)
+    panel.update_measurement(round_, confirmed)
+    assert panel.secondary_label.text() == "Señales adicionales: Lluvioso, Neblina"
+    assert not panel.secondary_label.isHidden()
+    panel.close()
+    widget.hide()
+    app.processEvents()
+
+
 def test_diagnostic_table_shows_samples_and_excludes_failed_latency(tmp_path):
     app = QApplication.instance() or QApplication([])
     settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)

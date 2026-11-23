@@ -136,8 +136,26 @@ def test_engine_requires_hysteresis():
     engine = WeatherEngine()
     assert engine.add(round_at(0)).weather == Weather.UNKNOWN
     assert engine.add(round_at(1)).weather == Weather.UNKNOWN
-    assert engine.add(round_at(2)).weather == Weather.UNKNOWN
+    pending = engine.add(round_at(2))
+    assert pending.weather == Weather.UNKNOWN
+    assert pending.pending_weather == Weather.SUNNY
+    assert pending.secondary == ()
     assert engine.add(round_at(3)).weather == Weather.SUNNY
+
+
+def test_confirmed_storm_keeps_secondary_phenomena_separate_from_pending_weather():
+    engine = WeatherEngine()
+    for index in range(2):
+        engine.add(round_at(index, tcp_fail=True, dns_fail=True, https_fail=False))
+    pending = engine.add(round_at(2, tcp_fail=True, dns_fail=True, https_fail=False))
+    assert pending.weather == Weather.UNKNOWN
+    assert pending.pending_weather == Weather.STORMY
+    assert pending.secondary == ()
+
+    confirmed = engine.add(round_at(3, tcp_fail=True, dns_fail=True, https_fail=False))
+    assert confirmed.weather == Weather.STORMY
+    assert confirmed.pending_weather is None
+    assert set(confirmed.secondary) == {Weather.RAINY, Weather.FOGGY}
 
 
 def test_route_change_resets_classification_window():

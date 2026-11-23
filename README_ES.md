@@ -46,6 +46,8 @@ Los cambios de clima se funden brevemente entre escenas en el widget y el resume
 
 En la gráfica compacta, los extremos muestran segundos cuando el intervalo visible es menor de dos minutos, para distinguir mediciones cercanas. DNS correcto y cero fallos TCP observados se muestran en verde; la falta de respuesta ICMP de la puerta de enlace conserva un color neutro porque puede estar filtrada.
 
+Cuando hay varios fenómenos confirmados, el resumen muestra el principal y las señales adicionales. Un clima aún pendiente de confirmación se identifica por separado y no se presenta como fenómeno secundario.
+
 ## Qué se mide
 
 Cada ronda consulta por defecto `example.com` y `www.wikipedia.org`. Para cada destino hace una resolución DNS del sistema, una conexión TCP al puerto 443 y una solicitud HTTPS `HEAD /` con TLS verificado. Es una solicitud pequeña; no descarga el cuerpo. Una respuesta HTTP válida, incluso 4xx/5xx, confirma conectividad HTTP y conserva el código recibido. El usuario puede cambiar los destinos con `--destination` (repetible). No se modifica la configuración de red.

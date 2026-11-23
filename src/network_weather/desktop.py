@@ -838,11 +838,16 @@ class ExpandedPanel(QMainWindow):
         self.summary_description = QLabel(weather_description(Weather.UNKNOWN, self.language))
         self.summary_description.setStyleSheet(
             "font-size:15px;color:#f2e9ff;background:transparent")
+        self.secondary_label = QLabel("")
+        self.secondary_label.setStyleSheet(
+            "font-size:12px;color:#f0b8ee;background:transparent")
+        self.secondary_label.hide()
         self.confidence_label = QLabel(self.t("Confianza: —   Severidad: —"))
         self.confidence_label.setStyleSheet(
             "color:#c8f9e5;font-size:11px;background:transparent")
         overlay_layout.addWidget(self.summary_label)
         overlay_layout.addWidget(self.summary_description)
+        overlay_layout.addWidget(self.secondary_label)
         overlay_layout.addWidget(self.confidence_label)
         hero_stack.addWidget(overlay)
         hero_stack.setCurrentWidget(overlay)
@@ -1319,6 +1324,13 @@ class ExpandedPanel(QMainWindow):
         self.overview_scene.set_weather(result.weather)
         self.summary_label.setText(weather_name(result.weather, self.language))
         self.summary_description.setText(classification_description(result, self.language))
+        if result.secondary and result.pending_weather is None:
+            heading = "Additional signals" if self.language == "en" else "Señales adicionales"
+            names = ", ".join(weather_name(item, self.language) for item in result.secondary)
+            self.secondary_label.setText(f"{heading}: {names}")
+            self.secondary_label.show()
+        else:
+            self.secondary_label.hide()
         self.panel_status.setText(self.t("●  Monitoreo activo · datos reales"))
         confidence_label = "Confidence" if self.language == "en" else "Confianza"
         severity_label = "Severity" if self.language == "en" else "Severidad"

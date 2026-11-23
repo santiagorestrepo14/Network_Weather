@@ -41,7 +41,8 @@ def test_unknown_description_explains_measurement_progress_and_confirmation():
     assert classification_description(gathering, "es") == "Analizando la conexión (2/3 rondas)"
     assert classification_description(gathering, "en") == "Collecting measurements (2/3 rounds)"
 
-    confirming = Classification(Weather.UNKNOWN, (Weather.SUNNY,), 0.5, 0.0, (), 3)
+    confirming = Classification(Weather.UNKNOWN, (), 0.5, 0.0, (), 3,
+                                pending_weather=Weather.SUNNY)
     assert classification_description(confirming, "es") == (
         "Confirmando Soleado con otra medición")
     assert classification_description(confirming, "en") == (
