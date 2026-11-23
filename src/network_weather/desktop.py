@@ -1425,7 +1425,6 @@ class DesktopController(QObject):
             self.worker.measured.connect(self._measured)
             self.worker.failed.connect(self._failed)
             self.worker.start()
-            self._request_history()
 
     def _tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
@@ -1461,6 +1460,8 @@ class DesktopController(QObject):
         self.recent_rounds = rounds[-30:]
         # Prior rounds belong in the chart, but compact status cards need a fresh round.
         self.widget.sparkline.set_points(compact_points(self.recent_rounds))
+        # The monitor has finished initializing SQLite; the read worker can now open it.
+        self._request_history()
 
     def _request_history(self) -> None:
         if self.demo:

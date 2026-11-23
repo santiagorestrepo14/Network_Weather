@@ -1,4 +1,5 @@
 import os
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -12,9 +13,15 @@ from PySide6.QtGui import QColor, QImage, QImageReader
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 from network_weather.compact_history import compact_points
-from network_weather.desktop import ExpandedPanel, HistoryQueryThread, WeatherScene, WeatherWidget
+from network_weather.desktop import (
+    DesktopController,
+    ExpandedPanel,
+    HistoryQueryThread,
+    WeatherScene,
+    WeatherWidget,
+)
 from network_weather.diagnostics import recent_diagnostics
-from network_weather.history import HistorySeries, LatencyBin, WeatherPoint
+from network_weather.history import HistorySeries, HistoryStore, LatencyBin, WeatherPoint
 from network_weather.models import (
     MeasurementRound,
     ProbeKind,
@@ -296,6 +303,34 @@ def test_history_query_thread_can_start_and_load_an_empty_range(tmp_path, monkey
     assert len(loaded) == 1
     assert loaded[0][0].weather == ()
     assert loaded[0][1] == []
+
+
+def test_real_desktop_controller_stores_a_round_and_exits_cleanly(tmp_path, monkeypatch):
+    app = QApplication.instance() or QApplication([])
+    monkeypatch.setattr("network_weather.desktop.default_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("network_weather.monitor.default_data_dir", lambda: tmp_path)
+    at = datetime.now(UTC)
+    probes = tuple(
+        ProbeResult(at, host, kind, ProbeStatus.SUCCESS, 10.0)
+        for host in ("example.com", "www.wikipedia.org")
+        for kind in (ProbeKind.DNS, ProbeKind.TCP, ProbeKind.HTTPS)
+    )
+    observed = MeasurementRound(at, at, probes)
+    monkeypatch.setattr("network_weather.monitor.collect_once", lambda _config: observed)
+    controller = DesktopController(app, demo=False)
+    try:
+        deadline = time.monotonic() + 5
+        while not controller.recent_rounds and time.monotonic() < deadline:
+            app.processEvents()
+            time.sleep(0.01)
+        assert controller.recent_rounds == [observed], controller.widget.monitoring.text()
+        assert controller.worker.isRunning()
+    finally:
+        controller.exit()
+    assert not controller.worker.isRunning()
+    assert not controller.tray.isVisible()
+    with HistoryStore(tmp_path / "history.db") as store:
+        assert len(store.recent_rounds()) == 1
 
 
 def test_incident_selection_shows_persisted_evidence(tmp_path):

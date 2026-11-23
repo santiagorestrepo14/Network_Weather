@@ -17,7 +17,7 @@ def test_startup_command_uses_pythonw_when_available(tmp_path):
     python.write_bytes(b"")
     pythonw.write_bytes(b"")
     assert startup_command(str(python), frozen=False) == (
-        f'"{pythonw}" -m network_weather.desktop')
+        f'"{pythonw}" -m network_weather.desktop_launcher')
     assert startup_command(str(python), frozen=True) == f'"{python}"'
 
 

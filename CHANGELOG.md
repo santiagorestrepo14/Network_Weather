@@ -30,5 +30,7 @@
 - Added a verified WinHTTP HEAD fallback through the Windows system route after direct HTTPS failure; repeated HTTPS success can corroborate DNS trouble without claiming an outage.
 - Fixed real-mode desktop startup by keeping history range fields separate from `QThread.start()`.
 - Initialized missing standard output streams in the windowed Windows bundle so third-party code can run without a console.
+- Shared the no-console desktop bootstrap with `pythonw.exe` startup and added a real controller start/exit integration test.
+- Sequenced the first history query after monitor database initialization to avoid a cold-start SQLite lock race.
 
 This is a development snapshot. No release or executable has been published.

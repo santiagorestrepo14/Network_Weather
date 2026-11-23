@@ -17,7 +17,7 @@ def startup_command(executable: str, *, frozen: bool) -> str:
             path = pythonw
     command = f'"{path}"'
     if not frozen:
-        command += " -m network_weather.desktop"
+        command += " -m network_weather.desktop_launcher"
     if len(command) > 260:
         raise ValueError("Windows startup command exceeds 260 characters")
     return command
