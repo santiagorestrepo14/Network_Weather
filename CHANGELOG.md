@@ -26,5 +26,6 @@
 - Try one alternate resolved address when the preferred TCP or HTTPS address fails; record the retry context without counting it as an extra measurement sample.
 - Reapply the SQLite retention policy hourly while monitoring continues, including after long-running sessions.
 - Moved the compact widget's weather and monitoring labels onto the illustrated scene with a dark readability gradient.
+- Added a short crossfade when weather changes; reduced motion and disabled effects skip it, and static states return to idle afterward.
 
 This is a development snapshot. No release or executable has been published.

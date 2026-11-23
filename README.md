@@ -24,6 +24,7 @@ The desktop starts monitoring in a worker thread. Close or minimize the widget t
 
 Weather images and animated effects are independent. Each weather state can use an imported PNG, JPG or WebP (up to 10 MB and 4096 pixels per dimension), copied without modifying the original. The importer checks existence, format and dimensions before decoding. Image fit, effects and reduced motion apply immediately to the widget, overview and previews.
 Sunny and cloudy scenes have subtle ambient motion. Animation pauses for hidden scenes, static previews, offline/unknown states, and whenever effects are disabled or reduced motion is enabled.
+Weather changes crossfade briefly in the live widget and overview. The transition is skipped when reduced motion or visual effects are disabled.
 Changing probe destinations takes effect after restarting the app. The new destinations begin a fresh classification window; older measurements remain available in history, and any previous active incident is closed as a context change without asserting recovery.
 The configured history retention period is applied on startup and once per hour while monitoring remains active, so the database is pruned during long-running sessions.
 If a DNS answer contains multiple addresses, TCP and HTTPS each try the preferred address and at most one distinct alternative on failure, favoring the other IP family when available. A successful result reports the measured time for its successful attempt; retry details are retained without creating extra samples in the weather calculation.

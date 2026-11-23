@@ -190,6 +190,9 @@ def test_weather_animation_runs_only_when_visible_and_enabled(tmp_path):
     assert not scene.timer.isActive()
     settings.setValue("reduced_motion", False)
     scene.set_weather(Weather.OFFLINE)
+    assert scene.timer.isActive()
+    scene._transition_started -= 1
+    scene._tick()
     assert not scene.timer.isActive()
     scene.set_weather(Weather.SUNNY)
     assert scene.timer.isActive()
@@ -210,6 +213,45 @@ def test_sunny_and_cloudy_have_motion_but_previews_stay_static(tmp_path):
         scene.phase = 2
         assert scene.grab().toImage() != first
         assert not scene.timer.isActive()
+    scene.hide()
+
+
+def test_weather_change_crossfades_and_reduced_motion_skips_it(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    scene = WeatherScene(settings)
+    scene.resize(440, 210)
+    scene.set_weather(Weather.SUNNY)
+    scene.show()
+    app.processEvents()
+    scene.timer.stop()
+    sunny_frame = scene.grab().toImage()
+
+    scene.set_weather(Weather.OFFLINE)
+    assert not scene._transition_image.isNull()
+    assert scene.timer.isActive()
+    assert scene.timer.interval() == 50
+    scene._transition_started -= 0.275
+    midway_frame = scene.grab().toImage()
+    scene._transition_started -= 1
+    scene._tick()
+    assert scene._transition_image.isNull()
+    assert not scene.timer.isActive()
+    offline_frame = scene.grab().toImage()
+    assert midway_frame != sunny_frame
+    assert midway_frame != offline_frame
+
+    settings.setValue("reduced_motion", True)
+    scene.set_weather(Weather.RAINY)
+    assert scene._transition_image.isNull()
+    assert not scene.timer.isActive()
+    settings.setValue("reduced_motion", False)
+    scene.set_weather(Weather.CLOUDY)
+    assert not scene._transition_image.isNull()
+    settings.setValue("effects", False)
+    scene.sync_animation()
+    assert scene._transition_image.isNull()
+    assert not scene.timer.isActive()
     scene.hide()
 
 

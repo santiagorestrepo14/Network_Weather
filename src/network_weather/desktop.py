@@ -7,6 +7,7 @@ import math
 import sqlite3
 import sys
 import threading
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -129,6 +130,8 @@ class WeatherScene(QWidget):
         self.weather = Weather.UNKNOWN
         self.animated = animated
         self.phase = 0.0
+        self._transition_image = QImage()
+        self._transition_started = 0.0
         self._cached_image_path = ""
         self._cached_image = QImage()
         self.setMinimumHeight(205)
@@ -136,15 +139,23 @@ class WeatherScene(QWidget):
         self.timer.timeout.connect(self._tick)
 
     def sync_animation(self) -> None:
-        should_run = (
+        can_animate = (
             self.animated and self.isVisible()
-            and self.weather in (Weather.SUNNY, Weather.CLOUDY, Weather.WINDY,
-                                 Weather.RAINY, Weather.FOGGY, Weather.STORMY)
             and self.settings.value("effects", True, type=bool)
             and not self.settings.value("reduced_motion", False, type=bool)
         )
+        if (not can_animate or
+                time.monotonic() - self._transition_started >= 0.55):
+            self._transition_image = QImage()
+        transitioning = not self._transition_image.isNull()
+        should_run = can_animate and (
+            transitioning or self.weather in (
+                Weather.SUNNY, Weather.CLOUDY, Weather.WINDY,
+                Weather.RAINY, Weather.FOGGY, Weather.STORMY))
         if should_run and not self.timer.isActive():
-            self.timer.start(120)
+            self.timer.start(50 if transitioning else 120)
+        elif should_run:
+            self.timer.setInterval(50 if transitioning else 120)
         elif not should_run and self.timer.isActive():
             self.timer.stop()
 
@@ -158,9 +169,20 @@ class WeatherScene(QWidget):
 
     def _tick(self) -> None:
         self.phase += 0.08
+        if not self._transition_image.isNull():
+            self.sync_animation()
         self.update()
 
     def set_weather(self, weather: Weather) -> None:
+        if weather == self.weather:
+            return
+        if (self.animated and self.isVisible()
+                and self.settings.value("effects", True, type=bool)
+                and not self.settings.value("reduced_motion", False, type=bool)):
+            self._transition_image = self.grab().toImage()
+            self._transition_started = time.monotonic()
+        else:
+            self._transition_image = QImage()
         self.weather = weather
         self.sync_animation()
         self.update()
@@ -222,6 +244,11 @@ class WeatherScene(QWidget):
             self._landscape(p, QColor(accent))
         if self.settings.value("effects", True, type=bool):
             self._effects(p, QColor(accent))
+        if not self._transition_image.isNull():
+            progress = min(1.0, (time.monotonic() - self._transition_started) / 0.55)
+            if progress < 1:
+                p.setOpacity(1.0 - progress)
+                p.drawImage(rect, self._transition_image)
         p.end()
 
     def _landscape(self, p: QPainter, accent: QColor) -> None:

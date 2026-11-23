@@ -40,6 +40,7 @@ Vista del diagnóstico técnico con **valores sintéticos solo para revisar el d
 
 El resumen presenta la escena meteorológica, seis tarjetas de estado, el historial observado de la última hora, el incidente activo y sus evidencias. La gráfica se consulta en SQLite desde un hilo separado; en funcionamiento normal solo muestra rondas y latencias guardadas. Las tarjetas distinguen fallos TCP, estado DNS, respuesta ICMP de la puerta de enlace y conectividad externa confirmada sin convertirlos en pérdida IP ni atribuir causas no medidas.
 Las escenas Soleado y Nublado tienen movimiento ambiental suave. La animación se pausa al ocultar una escena, en las vistas previas estáticas, en los estados Sin conexión/Desconocido y al desactivar efectos o activar movimiento reducido.
+Los cambios de clima se funden brevemente entre escenas en el widget y el resumen. La transición se omite cuando está activado el movimiento reducido o los efectos visuales están desactivados.
 
 ## Qué se mide
 
