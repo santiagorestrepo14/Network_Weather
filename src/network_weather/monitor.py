@@ -8,7 +8,7 @@ from typing import Self
 from network_weather.collector import collect_once
 from network_weather.config import ProbeConfig, default_data_dir
 from network_weather.history import HistoryStore
-from network_weather.models import MeasurementRound
+from network_weather.models import MeasurementRound, ProbeKind
 from network_weather.weather import Classification, WeatherEngine
 
 
@@ -18,7 +18,15 @@ class Monitor:
         self.history = HistoryStore(database or default_data_dir() / "history.db")
         self.history.prune(config.retention_days)
         self.engine = WeatherEngine(config.interval_seconds)
-        for round_ in self.history.recent_rounds(60):
+        recent = self.history.recent_rounds(60)
+        expected = (frozenset(config.destinations), config.direct_ip_target)
+        matching_start = len(recent)
+        while matching_start and _targets(recent[matching_start - 1]) == expected:
+            matching_start -= 1
+        if recent and matching_start == len(recent):
+            self.history.end_active_incident_for_target_change(
+                recent[-1].finished_at)
+        for round_ in recent[matching_start:]:
             self.engine.add(round_)
 
     def measure(self) -> tuple[MeasurementRound, Classification]:
@@ -41,3 +49,11 @@ class Monitor:
 
     def __exit__(self, *_args: object) -> None:
         self.close()
+
+
+def _targets(round_: MeasurementRound) -> tuple[frozenset[str], str | None]:
+    dns = frozenset(probe.destination for probe in round_.probes
+                    if probe.kind == ProbeKind.DNS)
+    direct = frozenset(probe.destination for probe in round_.probes
+                       if probe.kind == ProbeKind.TCP and probe.destination not in dns)
+    return dns, next(iter(direct)) if len(direct) == 1 else None

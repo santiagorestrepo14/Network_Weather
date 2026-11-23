@@ -22,5 +22,6 @@
 - Added an optional DNS-independent TCP/443 probe to a configured public IP, with separate evidence for DNS failure versus external connectivity.
 - Applied image, fit and motion changes immediately across all weather scenes; rejected missing or disguised image files before import.
 - Added subtle motion to sunny and cloudy scenes; animation timers now run only for visible, animated weather when effects are enabled.
+- Reset classification after configured probe destinations change, while retaining older history and closing prior incidents without claiming recovery.
 
 This is a development snapshot. No release or executable has been published.

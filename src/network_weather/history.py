@@ -279,6 +279,11 @@ class HistoryStore:
         self._end_active_incident_for_context_change(
             at, "route_changed", "Observation context changed; recovery was not confirmed")
 
+    def end_active_incident_for_target_change(self, last_observed_at: datetime) -> None:
+        self._end_active_incident_for_context_change(
+            last_observed_at, "targets_changed",
+            "Probe destinations changed; recovery was not confirmed")
+
     def end_active_incident_for_gap(self, last_observed_at: datetime) -> None:
         self._end_active_incident_for_context_change(
             last_observed_at, "observation_gap",
