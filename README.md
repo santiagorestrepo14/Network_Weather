@@ -1,6 +1,6 @@
 # Network Weather
 
-Windows desktop network weather monitor. **Current state: development snapshot.** This repository provides real DNS, TCP and HTTPS probes, adapter snapshots, weather rules, local SQLite history, incident tracking, a CLI, a Windows widget, tray integration, expanded panel and eight procedural scenes. Visual polish and several diagnostics are still pending.
+Windows desktop network weather monitor. **Current state: development preview.** This repository provides real DNS, TCP and HTTPS probes, adapter snapshots, weather rules, local SQLite history, incident tracking, a CLI, a Windows widget, tray integration, expanded panel and eight procedural scenes. The packaged app still awaits the interactive clean-Windows checks in the release checklist before a final release.
 
 For the controls, settings and weather meanings, see the [English user guide](docs/USER_GUIDE.md) or [Spanish user guide](docs/USER_GUIDE_ES.md).
 The [Windows release acceptance checklist](docs/RELEASE_CHECKLIST.md) records the interactive checks still needed before a final release.
@@ -48,6 +48,7 @@ If a saved widget position is outside all current displays, such as after unplug
 **Start with Windows** is off by default. Enabling it adds a command only to the current user's `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` entry; disabling it removes that entry. The checkbox reads the actual registry state, and warns when an old installation path is registered. Source installs use `pythonw.exe` when available; the packaged app uses its own executable. See [Microsoft's Run key documentation](https://learn.microsoft.com/en-us/windows/win32/setupapi/run-and-runonce-registry-keys).
 
 Selecting an incident displays its start, end, duration, peak severity and latest persisted evidence. The UI leaves the cause unidentified when the available probes cannot establish it.
+Weather confidence, observed severity and cause confidence are separate. Cause confidence remains unestablished when the probes cannot identify a root cause. Runtime dependency licenses are described in [third-party notices](THIRD_PARTY_NOTICES.md).
 
 Choose **Settings → Language** to switch between Spanish and English. Restart the app to apply the saved choice. Raw error messages from Windows or external servers may retain their original language.
 

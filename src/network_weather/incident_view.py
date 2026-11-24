@@ -28,7 +28,8 @@ def format_incident(
             f"End: {end.astimezone():%Y-%m-%d %H:%M:%S}" if finished else "End: still active",
             f"Duration: {hours} h {minutes} min {seconds} s",
             f"Peak observed severity: {incident['severity']:.0%}",
-            "Cause: undetermined", "", "Most recent evidence:",
+            "Cause: undetermined",
+            "Cause confidence: not established", "", "Most recent evidence:",
         ]
     else:
         lines = [
@@ -38,7 +39,8 @@ def format_incident(
             f"Fin: {end.astimezone():%d/%m/%Y %H:%M:%S}" if finished else "Fin: aún activo",
             f"Duración: {hours} h {minutes} min {seconds} s",
             f"Severidad máxima observada: {incident['severity']:.0%}",
-            "Causa: no determinada", "", "Evidencias más recientes:",
+            "Causa: no determinada",
+            "Confianza en causa: no establecida", "", "Evidencias más recientes:",
         ]
     evidence = incident.get("evidence") or []
     if not evidence:

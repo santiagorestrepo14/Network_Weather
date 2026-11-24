@@ -10,7 +10,11 @@ analysis = Analysis(
     [str(project_root / "scripts" / "run_desktop.py")],
     pathex=[str(project_root / "src")],
     binaries=[],
-    datas=[(str(assets), "network_weather/assets")],
+    datas=[
+        (str(assets), "network_weather/assets"),
+        (str(project_root / "THIRD_PARTY_NOTICES.md"), "."),
+        (str(project_root / "licenses"), "licenses"),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -29,6 +33,9 @@ analysis.binaries = [
         entry[0].lower() in {"icuuc.dll", "icudt78.dll"}
         and "poppler" in entry[1].lower()
     )
+    # Qt's platform-input plugin is collected by PyInstaller even though this
+    # widget uses standard Windows input only. It pulls in a GPL-only module.
+    and "virtualkeyboard" not in entry[0].lower()
 ]
 
 archive = PYZ(analysis.pure)

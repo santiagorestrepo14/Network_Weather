@@ -21,6 +21,7 @@ def test_incident_detail_shows_duration_evidence_and_uncertain_cause():
     assert "80%" in rendered
     assert "230.4 ms" in rendered
     assert "Causa: no determinada" in rendered
+    assert "Confianza en causa: no establecida" in rendered
     assert "podría filtrar" in rendered
 
 
@@ -34,4 +35,5 @@ def test_active_incident_uses_observation_time():
     english = format_incident(incident, start + timedelta(minutes=5), language="en")
     assert "Weather: Rain" in english
     assert "Cause: undetermined" in english
+    assert "Cause confidence: not established" in english
     assert "still active" in english

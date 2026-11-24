@@ -975,7 +975,7 @@ class ExpandedPanel(QMainWindow):
         self.secondary_label.setStyleSheet(
             "font-size:12px;color:#f0b8ee;background:transparent")
         self.secondary_label.hide()
-        self.confidence_label = QLabel(self.t("Confianza: —   Severidad: —"))
+        self.confidence_label = QLabel(self.t("Confianza del clima: —   Severidad: —   Confianza en causa: —"))
         self.confidence_label.setStyleSheet(
             "color:#c8f9e5;font-size:11px;background:transparent")
         overlay_layout.addWidget(self.summary_label)
@@ -1465,11 +1465,17 @@ class ExpandedPanel(QMainWindow):
         else:
             self.secondary_label.hide()
         self.panel_status.setText(self.t("●  Monitoreo activo · datos reales"))
-        confidence_label = "Confidence" if self.language == "en" else "Confianza"
+        confidence_label = ("Weather confidence" if self.language == "en"
+                            else "Confianza del clima")
         severity_label = "Severity" if self.language == "en" else "Severidad"
+        cause_label = ("Cause confidence" if self.language == "en"
+                       else "Confianza en causa")
+        cause_value = (f"{result.cause_confidence:.0%}"
+                       if result.cause_confidence is not None else "—")
         self.confidence_label.setText(
             f"{confidence_label}: {result.confidence:.0%}   "
-            f"{severity_label}: {result.severity:.0%}")
+            f"{severity_label}: {result.severity:.0%}   "
+            f"{cause_label}: {cause_value}")
         self.evidence_label.setText("\n".join(
             evidence_name(e.code, e.detail, self.language) for e in result.evidence)
             or self.t("Sin evidencias concluyentes todavía."))

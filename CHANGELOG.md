@@ -51,5 +51,7 @@
 - Expanded the desktop integration check to verify that monitoring continues with the widget hidden and the tray Exit action stops it.
 - Rejected duplicate probe destinations that differ only by letter case or a trailing DNS dot, preserving the multi-target confidence requirement.
 - Saved soak-test resource summaries beside retained SQLite data so long-running verification results remain available after the console session ends.
+- Displayed weather confidence, severity and cause confidence separately; leave cause confidence unestablished when probes cannot identify a root cause.
+- Included runtime license notices and excluded Qt Virtual Keyboard, which the app does not use, from the Windows bundle.
 
 This is a development snapshot. No release or executable has been published.

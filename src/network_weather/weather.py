@@ -41,6 +41,15 @@ class Classification:
     # A cause is never assigned from these probes alone.
     cause: str | None = None
     pending_weather: Weather | None = None
+    cause_confidence: float | None = None
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.confidence <= 1 or not 0 <= self.severity <= 1:
+            raise ValueError("Confidence and severity must be between 0 and 1")
+        if (self.cause is None) != (self.cause_confidence is None):
+            raise ValueError("Cause and cause confidence must be provided together")
+        if self.cause_confidence is not None and not 0 <= self.cause_confidence <= 1:
+            raise ValueError("Cause confidence must be between 0 and 1")
 
 
 def _rate(results: list[ProbeResult]) -> float | None:

@@ -231,6 +231,7 @@ EN = {
         "A network probe is still running. Try exiting again.",
     "No se pudo crear la instancia única.": "Could not create the single application instance.",
     "Dejar de fijar encima de otras ventanas": "Stop keeping above other windows",
+    "Confianza del clima: —   Severidad: —   Confianza en causa: —": "Weather confidence: —   Severity: —   Cause confidence: —",
     "Arrastra para cambiar el tamaño": "Drag to resize",
     "Clima observado": "Observed weather",
     "Latencia TCP promedio por intervalo (ms)": "Average TCP latency per interval (ms)",

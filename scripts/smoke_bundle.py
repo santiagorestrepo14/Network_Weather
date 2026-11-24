@@ -23,6 +23,19 @@ def main() -> int:
     assets = bundle / "_internal" / "network_weather" / "assets"
     if not executable.is_file() or not all((assets / name).is_file() for name in ASSETS):
         raise RuntimeError(f"Incomplete Windows bundle: {bundle}")
+    internal = bundle / "_internal"
+    notices = [internal / "THIRD_PARTY_NOTICES.md", *(
+        internal / "licenses" / name for name in (
+            "LGPL-3.0.txt", "GPL-3.0.txt", "psutil-LICENSE"
+        )
+    )]
+    if not all(path.is_file() for path in notices):
+        raise RuntimeError("Bundle is missing third-party license notices")
+    if (internal / "PySide6" / "Qt6VirtualKeyboard.dll").exists() or (
+        internal / "PySide6" / "plugins" / "platforminputcontexts"
+        / "qtvirtualkeyboardplugin.dll"
+    ).exists():
+        raise RuntimeError("Unused Qt Virtual Keyboard was bundled")
 
     processes: list[subprocess.Popen] = []
     with tempfile.TemporaryDirectory(prefix="network-weather-smoke-") as data_root:
@@ -61,7 +74,8 @@ def main() -> int:
                     except subprocess.TimeoutExpired:
                         process.kill()
                         process.wait(timeout=5)
-    print("Windows bundle: eight scenes, demo startup, single instance, no measurements")
+    print("Windows bundle: eight scenes, license notices, demo startup, "
+          "single instance, no measurements")
     return 0
 
 

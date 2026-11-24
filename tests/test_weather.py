@@ -1,7 +1,9 @@
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from network_weather.models import MeasurementRound, ProbeKind, ProbeResult, ProbeStatus
-from network_weather.weather import Weather, WeatherEngine, classify
+from network_weather.weather import Classification, Weather, WeatherEngine, classify
 
 BASE = datetime(2026, 1, 1, tzinfo=UTC)
 HOSTS = ("a.example", "b.example")
@@ -65,6 +67,13 @@ def test_cached_dns_success_does_not_hide_repeated_external_outage():
     assert result.weather == Weather.OFFLINE
     assert any(e.code == "multi_target_outage" for e in result.evidence)
     assert result.cause is None
+    assert result.cause_confidence is None
+
+
+def test_cause_confidence_cannot_be_claimed_without_a_cause():
+    with pytest.raises(ValueError, match="together"):
+        Classification(Weather.RAINY, (), 0.8, 0.5, (), 3,
+                       cause_confidence=0.8)
 
 
 def test_one_outage_round_or_missing_probes_cannot_confirm_offline():

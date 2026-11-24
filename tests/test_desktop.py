@@ -657,6 +657,7 @@ def test_overview_cards_use_observed_probe_results(tmp_path):
     result = Classification(Weather.RAINY, (), 0.75, 0.5, (), 3)
     panel.update_measurement(round_, result)
     assert panel.overview_scene.weather == Weather.RAINY
+    assert "Cause confidence: —" in panel.confidence_label.text()
     assert panel.overview_cards["latency"].value.text() == "—"
     assert panel.overview_cards["failures"].value.text() == "100%"
     assert panel.overview_cards["dns"].value.text() == "Healthy"
