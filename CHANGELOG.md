@@ -53,5 +53,6 @@
 - Saved soak-test resource summaries beside retained SQLite data so long-running verification results remain available after the console session ends.
 - Displayed weather confidence, severity and cause confidence separately; leave cause confidence unestablished when probes cannot identify a root cause.
 - Included runtime license notices and excluded Qt Virtual Keyboard, which the app does not use, from the Windows bundle.
+- Replaced the widget, window and tray emblem with a clearer cloud-and-signal mark, and redrew the pin and panel controls as crisp high-DPI icons.
 
 This is a development snapshot. No release or executable has been published.
